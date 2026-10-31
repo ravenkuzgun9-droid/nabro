@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEXLAB // Arduino, ESP & Sensör Donanım Atlası</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        lab: {
+                            bg: '#090d16',
+                            surface: '#111827',
+                            card: '#161f33',
+                            border: '#26334d',
+                            cyan: '#06b6d4',
+                            violet: '#8b5cf6',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --glow-intensity: 1;
+            --accent-primary: #06b6d4;
+            --accent-secondary: #8b5cf6;
+            --accent-tertiary: #10b981;
+        }
+
+        body.mode-standard {
+            --glow-intensity: 0.25;
+        }
+
+        body.mode-abnormal {
+            --glow-intensity: 1;
+        }
+
+        body {
+            background-color: #090d16;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 12% 18%, rgba(139, 92, 246, calc(0.13 * var(--glow-intensity))), transparent 32%),
+                radial-gradient(circle at 88% 12%, rgba(6, 182, 212, calc(0.14 * var(--glow-intensity))), transparent 35%),
+                radial-gradient(circle at 50% 85%, rgba(16, 185, 129, calc(0.10 * var(--glow-intensity))), transparent 40%),
+                linear-gradient(to bottom, rgba(15, 23, 42, 0.4) 1px, transparent 1px),
+                linear-gradient(to right, rgba(15, 23, 42, 0.4) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+            background-attachment: fixed;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #26334d;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+
+        /* Standart / Anormal Card Styling */
+        .cyber-card {
+            background: rgba(22, 31, 51, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 78, 119, 0.55);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .cyber-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(6, 182, 212, 0.75);
+            box-shadow: 0 14px 32px -10px rgba(6, 182, 212, calc(0.28 * var(--glow-intensity))),
+                        0 0 20px -5px rgba(139, 92, 246, calc(0.22 * var(--glow-intensity)));
+        }
+
+        /* Floating Processor Tooltip */
+        #processor-tooltip {
+            pointer-events: none;
+            transition: opacity 0.16s ease, transform 0.16s ease;
+            z-index: 9999;
+            box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.75), 0 0 18px rgba(6, 182, 212, 0.35);
+        }
+
+        /* Pulse indicator */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.55; transform: scale(1.12); }
+        }
+        .pulse-dot {
+            animation: pulseGlow 2.4s infinite ease-in-out;
+        }
+
+        /* Smooth fade in for SPA views */
+        .page-transition {
+            animation: pageFade 0.28s ease-out forwards;
+        }
+        @keyframes pageFade {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="mode-abnormal min-h-screen flex flex-col selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- FLOATING CUSTOM HOVER TOOLTIP (İmleç/İşlemci Bilgi Kutusu) -->
+    <div id="processor-tooltip" class="fixed opacity-0 translate-y-1 max-w-xs sm:max-w-sm bg-slate-950/95 border border-cyan-400/70 rounded-xl p-3 text-xs text-slate-100 backdrop-blur-md">
+        <div class="flex items-center gap-2 mb-1 pb-1 border-b border-slate-800">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 pulse-dot"></span>
+            <span id="tooltip-title" class="font-mono font-bold text-cyan-300 uppercase tracking-wider text-[11px]">İŞLEMCİ BİLGİ NOTU</span>
+        </div>
+        <p id="tooltip-desc" class="text-slate-200 leading-relaxed font-normal"></p>
+    </div>
+
+    <!-- TOP STATUS & TELİF TARAMA BAR -->
+    <div class="bg-slate-950/90 border-b border-slate-800/80 text-xs py-2 px-4">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-[11px]"
+                      data-tooltip-title="Telif Tarama Motoru Aktif"
+                      data-tooltip="Sitedeki tüm görseller taranmış; telifli stok fotoğraflar elenerek yalnızca açık lisanslı (CC BY, CC BY-SA, Public Domain) görseller ve orijinal yapımcı bilgileri eklenmiştir.">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+                    MEDYA TARAMASI: TELİFSİZ & ATIFLI LİSANS DOĞRULANDI
+                </span>
+                <span class="hidden md:inline text-slate-400">İmleci herhangi bir butonun üzerine getirerek ne işe yaradığını anında okuyabilirsiniz.</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- Görsel Mod Seçici: Fotoğraf vs Şema -->
+                <button id="global-media-toggle"
+                        onclick="toggleGlobalMediaMode()"
+                        data-tooltip-title="Görsel Sunum Modu Değiştirici"
+                        data-tooltip="Tüm kartlardaki görselleri Açık Lisanslı Gerçek Fotoğraf veya Etkileşimli Teknik PCB Şeması arasında tek tıkla değiştirir."
+                        class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center gap-1.5 transition">
+                    <i data-lucide="image" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span id="global-media-label">Görsel: Fotoğraf + PCB Şema</span>
+                </button>
+
+                <!-- Standart / Anormal Renk Dengesi Anahtarı -->
+                <button id="theme-balance-btn"
+                        onclick="toggleColorBalance()"
+                        data-tooltip-title="Standart / Anormal Renk Dengesi"
+                        data-tooltip="Sitenin görsel atmosferini göz yormayan 'Standart Laboratuvar' ile neon siber vurgulu 'Standart/Anormal' modu arasında geçiş yaptırır."
+                        class="px-2.5 py-1 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/50 text-violet-200 flex items-center gap-1.5 transition font-medium">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-violet-300"></i>
+                    <span id="theme-balance-label">Renk: Standart / Anormal</span>
+                </button>
+
+                <!-- Telif Raporu Butonu -->
+                <button onclick="openCopyrightReportModal()"
+                        data-tooltip-title="Telif Hakkı & Medya Tarama Raporu"
+                        data-tooltip="Hangi görsellerin telif nedeniyle elendiğini ve kullanılan açık lisanslı fotoğrafların orijinal yapımcı listesini gösterir."
+                        class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 flex items-center gap-1.5 transition">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                    <span>Telif Raporu</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN HEADER & MULTI-PAGE NAVIGATION -->
+    <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/90">
+        <div class="max-w-7xl mx-auto px-4 py-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <!-- Brand Logo -->
+            <div class="flex items-center justify-between">
+                <button onclick="navigateToPage('overview')"
+                        data-tooltip-title="Ana Merkeze Dön"
+                        data-tooltip="Genel bakış sayfasına, hızlı mimari karşılaştırma tablosuna ve tüm ekipman özetine geri döner."
+                        class="flex items-center gap-3 text-left group">
+                    <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500 via-violet-600 to-emerald-500 p-[1.5px] shadow-lg shadow-cyan-500/20">
+                        <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+                            <i data-lucide="cpu" class="w-6 h-6 text-cyan-400 group-hover:rotate-12 transition-transform"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-extrabold text-lg tracking-tight text-white">HEX<span class="text-cyan-400">LAB</span></span>
+                            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/40">TR v2.6</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Arduino, ESP & Yardımcı Aletler Donanım Kütüphanesi</p>
+                    </div>
+                </button>
+
+                <!-- Compare Counter Button (Mobile) -->
+                <button onclick="openCompareModal()"
+                        data-tooltip-title="Karşılaştırma Tablosunu Aç"
+                        data-tooltip="Seçtiğiniz mikrodenetleyici veya sensörleri yan yana teknik özelliklerine göre kıyaslar."
+                        class="lg:hidden relative px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-200 flex items-center gap-1.5 text-xs">
+                    <i data-lucide="scale" class="w-4 h-4 text-cyan-400"></i>
+                    <span>Kıyasla</span>
+                    <span id="compare-badge-mobile" class="px-1.5 py-0.5 text-[10px] font-mono rounded-full bg-cyan-500 text-slate-950 font-bold">0</span>
+                </button>
+            </div>
+
+            <!-- Dedicated Page Navigation Buttons -->
+            <nav class="flex flex-wrap items-center gap-2" aria-label="Ana Sayfalar">
+                <button id="nav-overview"
+                        onclick="navigateToPage('overview')"
+                        data-tooltip-title="Genel Bakış & Rehber Sayfası"
+                        data-tooltip="Arduino ve ESP ekosistemlerinin farklarını, hızlı seçim rehberini ve tüm kategorilerin özetini gösterir."
+                        class="nav-tab px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition border">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Genel Bakış</span>
+                </button>
+
+                <button id="nav-arduino"
+                        onclick="navigateToPage('arduino')"
+                        data-tooltip-title="Sayfa 1: Arduino Ekipmanları"
+                        data-tooltip="Arduino Uno, Nano, Mega 2560 ve Leonardo gibi mikrodenetleyici kartlarının olduğu özel sayfayı açar. Robotik ve temel otomasyon için idealdir."
+                        class="nav-tab px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition border">
+                    <i data-lucide="circuit-board" class="w-4 h-4 text-cyan-400"></i>
+                    <span>1. Arduino Ekipmanları</span>
+                    <span class="px-1.5 py-0.5 text-[11px] font-mono rounded-md bg-cyan-500/20 text-cyan-300">4</span>
+                </button>
+
+                <button id="nav-esp"
+                        onclick="navigateToPage('esp')"
+                        data-tooltip-title="Sayfa 2: ESP Ekipmanları (Wi-Fi & IoT)"
+                        data-tooltip="ESP32, ESP8266 NodeMCU, ESP32-CAM ve ESP32-S3 gibi kablosuz internet ve Bluetooth destekli yüksek hızlı kartların sayfasını açar."
+                        class="nav-tab px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition border">
+                    <i data-lucide="wifi" class="w-4 h-4 text-violet-400"></i>
+                    <span>2. ESP Ekipmanları</span>
+                    <span class="px-1.5 py-0.5 text-[11px] font-mono rounded-md bg-violet-500/20 text-violet-300">4</span>
+                </button>
+
+                <button id="nav-tools"
+                        onclick="navigateToPage('tools')"
+                        data-tooltip-title="Sayfa 3: Sensörler & Yardımcı Aletler"
+                        data-tooltip="Arduino ve ESP kartlarına bağlanabilen hareket, mesafe, sıcaklık sensörleri, OLED ekranlar ve multimetre/lehim gibi ölçüm aletlerini listeler."
+                        class="nav-tab px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition border">
+                    <i data-lucide="wrench" class="w-4 h-4 text-emerald-400"></i>
+                    <span>3. Sensörler & Aletler</span>
+                    <span class="px-1.5 py-0.5 text-[11px] font-mono rounded-md bg-emerald-500/20 text-emerald-300">6</span>
+                </button>
+            </nav>
+
+            <!-- Search & Compare Action -->
+            <div class="flex items-center gap-2.5">
+                <div class="relative flex-1 sm:w-60">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input id="global-search"
+                           type="text"
+                           oninput="handleGlobalSearch(this.value)"
+                           placeholder="Kart, çip veya sensör ara..."
+                           data-tooltip-title="Akıllı Donanım Arama Çubuğu"
+                           data-tooltip="ATmega328P, Wi-Fi, mesafe, I2C, kamera veya multimetre gibi anahtar kelimelerle tüm ekipmanlar içinde anında filtreleme yapar."
+                           class="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-900/90 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-cyan-400 transition">
+                    <button id="clear-search-btn"
+                            onclick="clearSearch()"
+                            data-tooltip-title="Aramayı Temizle"
+                            data-tooltip="Arama kutusundaki metni siler ve tüm donanım kartlarını tekrar listeler."
+                            class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <button onclick="openCompareModal()"
+                        data-tooltip-title="Donanım Karşılaştırma Paneli"
+                        data-tooltip="Kartların üzerindeki 'Kıyasla' butonuyla seçtiğiniz ekipmanları voltaj, bellek, pin sayısı ve kullanım amacına göre karşılaştırır."
+                        class="hidden lg:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-sm font-medium transition">
+                    <i data-lucide="scale" class="w-4 h-4 text-cyan-400"></i>
+                    <span>Kıyasla</span>
+                    <span id="compare-badge-desktop" class="px-2 py-0.5 text-xs font-mono rounded-full bg-cyan-500 text-slate-950 font-bold">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+
+        <!-- SEARCH RESULTS BANNER (Visible when searching) -->
+        <div id="search-status-banner" class="hidden mb-6 p-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/40 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-300">
+                    <i data-lucide="filter" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-white">Arama Sonuçları Gösteriliyor: "<span id="search-query-text" class="text-cyan-300 font-mono"></span>"</h3>
+                    <p id="search-count-text" class="text-xs text-slate-300"></p>
+                </div>
+            </div>
+            <button onclick="clearSearch()"
+                    data-tooltip-title="Aramayı Kapat"
+                    data-tooltip="Arama filtresini kaldırır ve bulunduğunuz sayfanın standart görünümüne döner."
+                    class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-cyan-300 font-medium">
+                Aramayı Temizle
+            </button>
+        </div>
+
+        <!-- ==========================================
+             VIEW 0: GENEL BAKIŞ (ANA MERKEZ)
+             ========================================== -->
+        <section id="view-overview" class="page-transition space-y-10">
+            <!-- Hero Banner -->
+            <div class="relative rounded-3xl overflow-hidden border border-slate-800 bg-gradient-to-br from-slate-900/95 via-slate-900/80 to-indigo-950/60 p-6 sm:p-10 shadow-2xl">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    <div class="lg:col-span-7 space-y-5">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/15 border border-violet-400/40 text-violet-300 text-xs font-mono">
+                            <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                            <span>AÇIK KAYNAK DONANIM REHBERİ • KOLAY OKUNABİLİR ARAYÜZ</span>
+                        </div>
+                        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                            Arduino, ESP ve Yardımcı Aletleri <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-violet-400 to-emerald-400">Anlaşılır Şekilde</span> Keşfedin.
+                        </h1>
+                        <p class="text-slate-300 text-base sm:text-lg leading-relaxed">
+                            Bu platformda mikrodenetleyici kartları ve onlarla çalışan sensörler/aletler <strong>3 ayrı özel sayfada</strong> toplanmıştır. Her butonun üzerine imleç ile geldiğinizde ne işe yaradığını anlatan <strong>kısa bilgi kutusu</strong> açılır. Tüm görseller telif taramasından geçirilmiş olup <strong>İncele</strong> bölümünde orijinal yapımcılarıyla birlikte sunulur.
+                        </p>
+
+                        <!-- Quick Page Jump Buttons with Hover Tooltips -->
+                        <div class="flex flex-wrap gap-3 pt-2">
+                            <button onclick="navigateToPage('arduino')"
+                                    data-tooltip-title="Arduino Sayfasına Git"
+                                    data-tooltip="Yeni başlayanlar ve robotik projeler için en sağlam 5V lojik tabanlı Arduino Uno, Nano, Mega ve Leonardo kartlarını inceleyin."
+                                    class="px-5 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition">
+                                <i data-lucide="circuit-board" class="w-4 h-4"></i>
+                                <span>Arduino Ekipmanları (Sayfa 1)</span>
+                            </button>
+
+                            <button onclick="navigateToPage('esp')"
+                                    data-tooltip-title="ESP Sayfasına Git"
+                                    data-tooltip="Wi-Fi, Bluetooth, kamera ve yapay zeka destekli ESP32 / ESP8266 kablosuz IoT kartlarını inceleyin."
+                                    class="px-5 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg shadow-violet-600/25 transition">
+                                <i data-lucide="wifi" class="w-4 h-4"></i>
+                                <span>ESP Ekipmanları (Sayfa 2)</span>
+                            </button>
+
+                            <button onclick="navigateToPage('tools')"
+                                    data-tooltip-title="Sensörler ve Aletler Sayfasına Git"
+                                    data-tooltip="Bu kartlara takılan hareket, mesafe, sıcaklık sensörlerini, ekranları ve multimetre/lehimleme ekipmanlarını görüntüleyin."
+                                    class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition">
+                                <i data-lucide="wrench" class="w-4 h-4"></i>
+                                <span>Sensörler & Aletler (Sayfa 3)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Quick Architecture Summary Card -->
+                    <div class="lg:col-span-5 bg-slate-950/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div>
+                                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="compass" class="w-4 h-4 text-cyan-400"></i>
+                                    <span>Hangi Kartı Seçmeliyim?</span>
+                                </h2>
+                                <p class="text-xs text-slate-400">İhtiyacınıza göre 10 saniyede doğru platformu bulun</p>
+                            </div>
+                            <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-900 text-cyan-300 border border-slate-700">HIZLI REHBER</span>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div onclick="navigateToPage('arduino')"
+                                 data-tooltip-title="Arduino Seçim Senaryosu"
+                                 data-tooltip="Motor sürme, 5V sensörlerle doğrudan çalışma ve elektroniği sıfırdan öğrenme için Arduino sayfasına tıklayın."
+                                 class="p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-cyan-500/30 cursor-pointer transition flex items-start gap-3">
+                                <div class="p-2 rounded-lg bg-cyan-500/20 text-cyan-300 mt-0.5">
+                                    <i data-lucide="bot" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-cyan-300 mb-0.5">Robotik, Motor Kontrolü & Kolay Başlangıç → Arduino</div>
+                                    <p class="text-slate-300 leading-relaxed">5V gerilim seviyesiyle sensörleri doğrudan çalıştırır, gerçek zamanlı pin kontrolünde çok kararlıdır.</p>
+                                </div>
+                            </div>
+
+                            <div onclick="navigateToPage('esp')"
+                                 data-tooltip-title="ESP Seçim Senaryosu"
+                                 data-tooltip="İnternete veri gönderme, web sunucusu kurma, uzaktan kontrol ve kamera projeleri için ESP sayfasına tıklayın."
+                                 class="p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-violet-500/30 cursor-pointer transition flex items-start gap-3">
+                                <div class="p-2 rounded-lg bg-violet-500/20 text-violet-300 mt-0.5">
+                                    <i data-lucide="globe" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-violet-300 mb-0.5">Kablosuz İnternet (IoT), Bluetooth & Kamera → ESP</div>
+                                    <p class="text-slate-300 leading-relaxed">160-240 MHz hız, dahili Wi-Fi/BLE ve yüksek RAM ile akıllı ev ve bulut projelerinin standardıdır.</p>
+                                </div>
+                            </div>
+
+                            <div onclick="navigateToPage('tools')"
+                                 data-tooltip-title="Sensör & Alet Seçim Senaryosu"
+                                 data-tooltip="Kartların dış dünyayı algılamasını sağlayan sensörleri ve devre kurmak için gereken araçları incelemek için tıklayın."
+                                 class="p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800/90 border border-emerald-500/30 cursor-pointer transition flex items-start gap-3">
+                                <div class="p-2 rounded-lg bg-emerald-500/20 text-emerald-300 mt-0.5">
+                                    <i data-lucide="activity" class="w-4 h-4"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-emerald-300 mb-0.5">Ölçüm, Algılama & Görüntüleme → Sensörler ve Aletler</div>
+                                    <p class="text-slate-300 leading-relaxed">Mesafe, hareket, sıcaklık ölçen modüller ile devre kurarken zorunlu olan multimetre ve breadboard setleri.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3 Dedicated Category Cards Overview -->
+            <div>
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-5 gap-2">
+                    <div>
+                        <h2 class="text-xl sm:text-2xl font-bold text-white">Sitedeki Ayrı Donanım Sayfaları</h2>
+                        <p class="text-sm text-slate-400">İncelemek istediğiniz donanım grubuna tıklayarak ilgili özel sayfaya geçebilirsiniz.</p>
+                    </div>
+                    <span class="text-xs font-mono text-cyan-400">Toplam 14 Doğrulanmış Ekipman • %100 Telif Kontrolü</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Box 1: Arduino -->
+                    <div class="cyber-card rounded-2xl p-6 flex flex-col justify-between border-t-4 border-t-cyan-400">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-300 font-mono text-xs font-semibold">SAYFA 01</span>
+                                <i data-lucide="circuit-board" class="w-6 h-6 text-cyan-400"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-2">Arduino Ekipmanları</h3>
+                            <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                                ATmega328P, ATmega2560 ve ATmega32U4 işlemcili klasik geliştirme kartları. Açık kaynak şemaları, 5V dayanıklılığı ve binlerce hazır kütüphanesi ile en rahat öğrenilen donanımlardır.
+                            </p>
+                            <ul class="space-y-1.5 text-xs text-slate-300 font-mono mb-6">
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Arduino Uno R3 (Standart)</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Arduino Nano (Breadboard Uyumlu)</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Arduino Mega 2560 (54 Dijital Pin)</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> Arduino Leonardo (USB Klavye/Fare)</li>
+                            </ul>
+                        </div>
+                        <button onclick="navigateToPage('arduino')"
+                                data-tooltip-title="Arduino Sayfasını Aç"
+                                data-tooltip="Tüm Arduino modellerini, telifsiz görsellerini, pin yapılarını ve kullanım alanlarını listeler."
+                                class="w-full py-2.5 px-4 rounded-xl bg-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 text-cyan-300 border border-cyan-500/40 font-semibold text-sm transition flex items-center justify-center gap-2">
+                            <span>Arduino Sayfasına Git</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- Box 2: ESP -->
+                    <div class="cyber-card rounded-2xl p-6 flex flex-col justify-between border-t-4 border-t-violet-500">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="px-3 py-1 rounded-full bg-violet-500/15 text-violet-300 font-mono text-xs font-semibold">SAYFA 02</span>
+                                <i data-lucide="wifi" class="w-6 h-6 text-violet-400"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-2">ESP Ekipmanları</h3>
+                            <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                                Espressif Systems tarafından geliştirilen 32-bit yüksek hızlı, dahili Wi-Fi ve Bluetooth destekli mikrodenetleyiciler. Akıllı ev, uzaktan izleme ve kamera projeleri için üretilmiştir.
+                            </p>
+                            <ul class="space-y-1.5 text-xs text-slate-300 font-mono mb-6">
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span> ESP32-WROOM-32 DevKitC</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span> ESP8266 NodeMCU V3 (Ekonomik IoT)</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span> ESP32-CAM (Kamera + MicroSD)</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span> ESP32-S3 (Yapay Zeka & USB OTG)</li>
+                            </ul>
+                        </div>
+                        <button onclick="navigateToPage('esp')"
+                                data-tooltip-title="ESP Sayfasını Aç"
+                                data-tooltip="ESP8266 ve ESP32 ailesinin teknik detaylarını, 3.3V bağlantı uyarılarını ve açık lisanslı görsellerini açar."
+                                class="w-full py-2.5 px-4 rounded-xl bg-violet-500/20 hover:bg-violet-500 hover:text-white text-violet-300 border border-violet-500/40 font-semibold text-sm transition flex items-center justify-center gap-2">
+                            <span>ESP Sayfasına Git</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- Box 3: Sensörler & Aletler -->
+                    <div class="cyber-card rounded-2xl p-6 flex flex-col justify-between border-t-4 border-t-emerald-500">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 font-mono text-xs font-semibold">SAYFA 03</span>
+                                <i data-lucide="wrench" class="w-6 h-6 text-emerald-400"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-2">Sensörler & Yardımcı Aletler</h3>
+                            <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                                Arduino ve ESP kartlarını gerçek dünyayla buluşturan çevre birimleri. Mesafe, hareket, ivme ve sıcaklık sensörleri ile devre kurarken kullanılan laboratuvar ekipmanları.
+                            </p>
+                            <ul class="space-y-1.5 text-xs text-slate-300 font-mono mb-6">
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> HC-SR501 PIR & HC-SR04 Ultrasonik</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> MPU6050 6-Eksen Jiroskop & İvmeölçer</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> SSD1306 OLED Ekran & DHT22 Sensör</li>
+                                <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Dijital Multimetre & Breadboard Seti</li>
+                            </ul>
+                        </div>
+                        <button onclick="navigateToPage('tools')"
+                                data-tooltip-title="Sensörler ve Aletler Sayfasını Aç"
+                                data-tooltip="Hem Arduino hem de ESP ile kullanılabilen modülleri, bağlantı pinlerini ve ölçüm cihazlarını gösterir."
+                                class="w-full py-2.5 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-500/40 font-semibold text-sm transition flex items-center justify-center gap-2">
+                            <span>Sensör & Alet Sayfasına Git</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Technical Comparison Matrix -->
+            <div class="cyber-card rounded-2xl p-6 border border-slate-800">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="layers" class="w-5 h-5 text-cyan-400"></i>
+                            <span>Arduino vs ESP: Hızlı Teknik Karşılaştırma Özeti</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">Projeye başlamadan önce iki ekosistem arasındaki temel donanım farkları</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-xs font-mono uppercase text-slate-400">
+                                <th class="py-3 px-4">Özellik</th>
+                                <th class="py-3 px-4 text-cyan-300">Arduino Ailesi (Uno / Nano / Mega)</th>
+                                <th class="py-3 px-4 text-violet-300">ESP Ailesi (ESP8266 / ESP32)</th>
+                                <th class="py-3 px-4 text-emerald-300">Sensör & Alet Uyumluluğu</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/70 text-slate-200">
+                            <tr class="hover:bg-slate-900/50">
+                                <td class="py-3 px-4 font-medium">Çalışma Gerilimi (Lojik)</td>
+                                <td class="py-3 px-4 font-mono text-cyan-300">5V DC (Dayanıklı Giriş/Çıkış)</td>
+                                <td class="py-3 px-4 font-mono text-violet-300">3.3V DC (5V direkt verilmemeli)</td>
+                                <td class="py-3 px-4 text-xs text-slate-300">Çoğu modül 3.3V-5V arası çalışır; 5V çıkışlı sensörlerde ESP için gerilim bölücü önerilir.</td>
+                            </tr>
+                            <tr class="hover:bg-slate-900/50">
+                                <td class="py-3 px-4 font-medium">İşlemci Saat Hızı</td>
+                                <td class="py-3 px-4 font-mono">16 MHz (8-bit AVR)</td>
+                                <td class="py-3 px-4 font-mono">80 MHz – 240 MHz (32-bit Çift Çekirdek)</td>
+                                <td class="py-3 px-4 text-xs text-slate-300">OLED ekran ve kamera gibi yüksek veri işleyen modüller ESP ile çok daha akıcı çalışır.</td>
+                            </tr>
+                            <tr class="hover:bg-slate-900/50">
+                                <td class="py-3 px-4 font-medium">Kablosuz Bağlantı</td>
+                                <td class="py-3 px-4">Yok (Harici modül gerekir)</td>
+                                <td class="py-3 px-4 font-semibold text-violet-300">Dahili Wi-Fi + Bluetooth (BLE)</td>
+                                <td class="py-3 px-4 text-xs text-slate-300">Sensör verilerini internete/telefona aktarmak için ESP doğrudan hazırdır.</td>
+                            </tr>
+                            <tr class="hover:bg-slate-900/50">
+                                <td class="py-3 px-4 font-medium">Programlama Dili</td>
+                                <td class="py-3 px-4">Arduino IDE (C / C++)</td>
+                                <td class="py-3 px-4">Arduino IDE (C++), MicroPython, ESP-IDF</td>
+                                <td class="py-3 px-4 text-xs text-slate-300">Aynı sensör kütüphaneleri (Wire, SPI, DHT, Adafruit) her iki grupta da çalışır.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 1: ARDUINO EKİPMANLARI SAYFASI
+             ========================================== -->
+        <section id="view-arduino" class="hidden page-transition space-y-6">
+            <div class="rounded-2xl bg-gradient-to-r from-cyan-950/60 via-slate-900 to-slate-900 border border-cyan-500/30 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="space-y-1.5">
+                    <div class="inline-flex items-center gap-2 text-xs font-mono text-cyan-300">
+                        <span class="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/40">SAYFA 1 / 3</span>
+                        <span>AVR MİMARİSİ • 5V LOJİK STANDART</span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Arduino Ekipmanları ve Geliştirme Kartları</h1>
+                    <p class="text-sm text-slate-300 max-w-3xl">
+                        Elektronik, robotik ve otomasyon projelerinin temelini oluşturan açık kaynaklı Arduino kartları. Her kartın üzerindeki <strong>"İncele"</strong> butonuna tıklayarak pin detaylarını, ne işe yaradığını ve görselin <strong>orijinal yapımcı / telif lisans bilgisini</strong> görebilirsiniz.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="filterCurrentPage('all')"
+                            data-tooltip-title="Tüm Arduino Kartlarını Göster"
+                            data-tooltip="Sayfadaki filtreyi sıfırlar ve tüm Arduino modellerini listeler."
+                            class="px-3 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 text-xs font-mono">
+                        Tümü (4)
+                    </button>
+                    <button onclick="filterCurrentPage('Başlangıç')"
+                            data-tooltip-title="Başlangıç Dostu Kartlar"
+                            data-tooltip="İlk kez kodlama ve devre kuracaklar için en uygun Arduino kartlarını filtreler."
+                            class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono">
+                        Başlangıç Dostu
+                    </button>
+                    <button onclick="filterCurrentPage('Çoklu Pin')"
+                            data-tooltip-title="Yüksek Pin Sayılı / Özel USB Kartlar"
+                            data-tooltip="3D yazıcı, CNC veya USB klavye/fare simülasyonu gibi ileri seviye kartları filtreler."
+                            class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono">
+                        İleri / Özel Donanım
+                    </button>
+                </div>
+            </div>
+
+            <div id="grid-arduino" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 2: ESP EKİPMANLARI SAYFASI
+             ========================================== -->
+        <section id="view-esp" class="hidden page-transition space-y-6">
+            <div class="rounded-2xl bg-gradient-to-r from-violet-950/60 via-slate-900 to-slate-900 border border-violet-500/30 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="space-y-1.5">
+                    <div class="inline-flex items-center gap-2 text-xs font-mono text-violet-300">
+                        <span class="px-2 py-0.5 rounded bg-violet-500/20 border border-violet-500/40">SAYFA 2 / 3</span>
+                        <span>32-BİT WI-FI & BLUETOOTH • IOT MİMARİSİ</span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-white">ESP Ekipmanları (ESP32 & ESP8266 Serisi)</h1>
+                    <p class="text-sm text-slate-300 max-w-3xl">
+                        Kablosuz internet (Wi-Fi), Bluetooth (BLE), kamera ile görüntü aktarma ve yapay zeka uygulamaları için geliştirilmiş yüksek performanslı mikrodenetleyiciler. Görseller telifsiz/açık lisanslı kaynaklardan doğrulanmıştır.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="filterCurrentPage('all')"
+                            data-tooltip-title="Tüm ESP Kartlarını Göster"
+                            data-tooltip="ESP8266 ve ESP32 serisindeki tüm kablosuz kartları listeler."
+                            class="px-3 py-2 rounded-xl bg-violet-500/20 border border-violet-400/50 text-violet-200 text-xs font-mono">
+                        Tümü (4)
+                    </button>
+                    <button onclick="filterCurrentPage('Wi-Fi + BLE')"
+                            data-tooltip-title="Çift Çekirdek Wi-Fi + Bluetooth Kartlar"
+                            data-tooltip="Hem Wi-Fi hem de Bluetooth Low Energy destekleyen ESP32 modellerini filtreler."
+                            class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono">
+                        Wi-Fi + Bluetooth
+                    </button>
+                    <button onclick="filterCurrentPage('Kamera / AI')"
+                            data-tooltip-title="Kamera ve Yapay Zeka Kartları"
+                            data-tooltip="Görüntü işleme, yüz tanıma ve ses/vektör işleme özellikli ESP modellerini filtreler."
+                            class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono">
+                        Kamera & Yapay Zeka
+                    </button>
+                </div>
+            </div>
+
+            <div id="grid-esp" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 3: SENSÖRLER & ALETLER SAYFASI
+             ========================================== -->
+        <section id="view-tools" class="hidden page-transition space-y-6">
+            <div class="rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-slate-900 border border-emerald-500/30 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="space-y-1.5">
+                    <div class="inline-flex items-center gap-2 text-xs font-mono text-emerald-300">
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40">SAYFA 3 / 3</span>
+                        <span>ÇEVRE BİRİMLERİ • ÖLÇÜM VE PROTOTİPLEME ALETLERİ</span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Arduino ve ESP İle Kullanılabilecek Sensörler & Aletler</h1>
+                    <p class="text-sm text-slate-300 max-w-3xl">
+                        Mikrodenetleyicilerin çevreyi algılamasını sağlayan sensörler, bilgi gösteren OLED ekranlar ve devre kurarken kullanılan ölçüm/prototipleme aletleri. Her modülün hangi kartlarla nasıl çalıştığı kart detaylarında açıklanmıştır.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="filterCurrentPage('all')"
+                            data-tooltip-title="Tüm Sensör ve Aletleri Göster"
+                            data-tooltip="Sayfadaki tüm sensörleri, ekranları ve laboratuvar aletlerini bir arada gösterir."
+                            class="px-3 py-2 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-mono">
+                        Tümü (6)
+                    </button>
+                    <button onclick="filterCurrentPage('Sensör')"
+                            data-tooltip-title="Sadece Algılayıcı Sensörler"
+                            data-tooltip="Hareket, mesafe, ivme/jiroskop ve sıcaklık/nem ölçen sensör modüllerini filtreler."
+                            class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono">
+                        Sensörler
+                    </button>
+                    <button onclick="filterCurrentPage('Ekran & Alet')"
+                            data-tooltip-title="Ekranlar ve Laboratuvar Aletleri"
+                            data-tooltip="OLED ekran modülünü, dijital multimetreyi ve breadboard prototipleme ekipmanlarını filtreler."
+                            class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono">
+                        Ekran & Ölçüm Aletleri
+                    </button>
+                </div>
+            </div>
+
+            <div id="grid-tools" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+
+        <!-- GLOBAL SEARCH RESULTS GRID (Shown when user types in search bar from Overview) -->
+        <section id="view-search-results" class="hidden page-transition space-y-6">
+            <div id="grid-search" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+
+    </main>
+
+    <!-- ==========================================
+         MODAL 1: "İNCELE" (HARDWARE DETAIL + COPYRIGHT & CREATOR ATTRIBUTION)
+         ========================================== -->
+    <div id="inspect-modal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div class="cyber-card w-full max-w-4xl rounded-3xl border border-cyan-500/40 bg-slate-900 shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span id="modal-category-badge" class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold"></span>
+                    <div>
+                        <h2 id="modal-title" class="text-lg sm:text-xl font-extrabold text-white"></h2>
+                        <p id="modal-subtitle" class="text-xs text-slate-400 font-mono"></p>
+                    </div>
+                </div>
+                <button onclick="closeInspectModal()"
+                        data-tooltip-title="İnceleme Penceresini Kapat"
+                        data-tooltip="Detay görünümünden çıkarak donanım listesine geri döner (ESC tuşu da kullanılabilir)."
+                        class="p-2 rounded-xl bg-slate-900 hover:bg-rose-500/20 border border-slate-700 hover:border-rose-500/50 text-slate-300 hover:text-rose-300 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 overflow-y-auto space-y-6">
+                <!-- Top Split: Visual Media + Copyright Verification Box -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- Left: Image / Interactive SVG Switcher -->
+                    <div class="lg:col-span-6 flex flex-col justify-between bg-slate-950 rounded-2xl border border-slate-800 p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                                <span>Telif Kontrolü: Uygun (Açık Lisans)</span>
+                            </span>
+                            <div class="flex items-center gap-1.5">
+                                <button id="modal-btn-photo"
+                                        onclick="switchModalMedia('photo')"
+                                        data-tooltip-title="Açık Lisanslı Fotoğrafı Göster"
+                                        data-tooltip="Wikimedia Commons üzerinden taranan orijinal yapımcı atıflı gerçek donanım fotoğrafını gösterir."
+                                        class="px-2.5 py-1 rounded-lg text-xs font-mono bg-cyan-500 text-slate-950 font-bold transition">
+                                    Fotoğraf
+                                </button>
+                                <button id="modal-btn-svg"
+                                        onclick="switchModalMedia('svg')"
+                                        data-tooltip-title="Teknik PCB Vektör Şemasını Göster"
+                                        data-tooltip="Pinlerin ve ana çiplerin yerini net olarak gösteren telifsiz dahili teknik çizimi açar."
+                                        class="px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                                    PCB Şeması
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Media Container -->
+                        <div class="relative h-60 sm:h-64 w-full rounded-xl bg-slate-900/90 border border-slate-800/90 flex items-center justify-center overflow-hidden p-3">
+                            <img id="modal-img"
+                                 src=""
+                                 alt=""
+                                 class="max-h-full max-w-full object-contain rounded-lg transition-all duration-300"
+                                 onerror="handleModalImageError()">
+                            <div id="modal-svg-container" class="hidden w-full h-full flex items-center justify-center"></div>
+                        </div>
+
+                        <p id="modal-img-caption" class="mt-3 text-[11px] text-slate-400 font-mono text-center"></p>
+                    </div>
+
+                    <!-- Right: TELİF HAKKI VE ORİJİNAL YAPIMCI BİLGİ KUTUSU (Explicit User Requirement) -->
+                    <div class="lg:col-span-6 bg-emerald-950/20 border border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-mono font-bold">
+                                    <i data-lucide="award" class="w-3.5 h-3.5"></i>
+                                    ORİJİNAL YAPIMCI & TELİF BEYANI
+                                </span>
+                                <span class="text-[11px] font-mono text-slate-400">Medya Tarama Kaydı</span>
+                            </div>
+
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Bu ekipman için kapalı telifli ticari katalog fotoğrafları elenmiş; aşağıda bilgileri yer alan <strong>orijinal üretici / fotoğrafçı</strong> tarafından açık lisansla paylaşılan görsel ve teknik diyagram kullanılmıştır:
+                            </p>
+
+                            <div class="bg-slate-950/90 rounded-xl p-3.5 border border-slate-800 space-y-2 text-xs">
+                                <div class="flex justify-between gap-2 border-b border-slate-800/80 pb-1.5">
+                                    <span class="text-slate-400">Orijinal Yapımcı / Fotoğrafçı:</span>
+                                    <span id="modal-creator" class="font-mono font-bold text-emerald-300 text-right"></span>
+                                </div>
+                                <div class="flex justify-between gap-2 border-b border-slate-800/80 pb-1.5">
+                                    <span class="text-slate-400">Donanım Tasarım Kaynağı:</span>
+                                    <span id="modal-hardware-designer" class="font-mono text-slate-200 text-right"></span>
+                                </div>
+                                <div class="flex justify-between gap-2 border-b border-slate-800/80 pb-1.5">
+                                    <span class="text-slate-400">Lisans Türü & Şartı:</span>
+                                    <span id="modal-license" class="font-mono text-cyan-300 text-right"></span>
+                                </div>
+                                <div class="flex justify-between gap-2">
+                                    <span class="text-slate-400">Arşiv / Doğrulama:</span>
+                                    <span id="modal-source-repo" class="font-mono text-slate-300 text-right"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 flex items-start gap-2.5">
+                            <i data-lucide="info" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+                            <div id="modal-attribution-note"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Description & What it does -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-950/70 rounded-2xl p-5 border border-slate-800 space-y-3">
+                        <h3 class="text-sm font-bold text-cyan-300 uppercase tracking-wider font-mono flex items-center gap-2">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i>
+                            <span>Ne İşe Yarar & Nasıl Kullanılır?</span>
+                        </h3>
+                        <p id="modal-description" class="text-sm text-slate-200 leading-relaxed"></p>
+                        <div class="pt-2">
+                            <h4 class="text-xs font-mono text-slate-400 uppercase mb-2">Başlıca Kullanım Alanları:</h4>
+                            <div id="modal-use-cases" class="flex flex-wrap gap-1.5"></div>
+                        </div>
+                    </div>
+
+                    <!-- Technical Specifications Table -->
+                    <div class="bg-slate-950/70 rounded-2xl p-5 border border-slate-800 space-y-3">
+                        <h3 class="text-sm font-bold text-violet-300 uppercase tracking-wider font-mono flex items-center gap-2">
+                            <i data-lucide="cpu" class="w-4 h-4"></i>
+                            <span>Teknik Özellikler & Uyumluluk</span>
+                        </h3>
+                        <div id="modal-specs-list" class="divide-y divide-slate-800/80 text-xs"></div>
+                    </div>
+                </div>
+
+                <!-- Pinout & Quick Sample Code Box -->
+                <div class="bg-slate-950 rounded-2xl p-5 border border-slate-800 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="text-sm font-bold text-emerald-300 uppercase tracking-wider font-mono flex items-center gap-2">
+                            <i data-lucide="cable" class="w-4 h-4"></i>
+                            <span>Pratik Pin Bağlantı Özeti & Örnek Kod</span>
+                        </h3>
+                        <button onclick="copyModalSnippet()"
+                                data-tooltip-title="Örnek Kodu Panoya Kopyala"
+                                data-tooltip="Aşağıdaki hızlı test kodunu Arduino IDE veya PlatformIO'ya yapıştırmak üzere kopyalar."
+                                class="px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-cyan-300 font-mono flex items-center gap-1.5 transition">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span id="copy-code-label">Kodu Kopyala</span>
+                        </button>
+                    </div>
+                    <p id="modal-wiring" class="text-xs text-slate-300 bg-slate-900/90 p-3 rounded-xl border border-slate-800 font-mono"></p>
+                    <pre id="modal-code" class="text-xs font-mono text-emerald-300 bg-slate-900/95 p-4 rounded-xl border border-slate-800 overflow-x-auto leading-relaxed"></pre>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-3.5 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <span class="text-xs text-slate-400">İpucu: Bu ekipmanı diğer kartlarla kıyaslamak için karşılaştırma listesine ekleyebilirsiniz.</span>
+                <div class="flex items-center gap-2.5">
+                    <button id="modal-compare-btn"
+                            onclick="toggleCompareFromModal()"
+                            data-tooltip-title="Karşılaştırma Listesine Ekle / Çıkar"
+                            data-tooltip="Bu donanımı teknik kıyaslama tablosuna ekler veya listeden çıkarır."
+                            class="px-4 py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/40 text-violet-200 text-xs font-bold transition flex items-center gap-1.5">
+                        <i data-lucide="scale" class="w-4 h-4"></i>
+                        <span id="modal-compare-btn-text">Karşılaştırmaya Ekle</span>
+                    </button>
+                    <button onclick="closeInspectModal()"
+                            data-tooltip-title="Pencereyi Kapat"
+                            data-tooltip="İnceleme ekranını kapatır."
+                            class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition">
+                        Tamam / Kapat
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 2: DONANIM KARŞILAŞTIRMA (COMPARE MODAL)
+         ========================================== -->
+    <div id="compare-modal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+        <div class="cyber-card w-full max-w-5xl rounded-3xl border border-violet-500/40 bg-slate-900 shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col">
+            <div class="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="scale" class="w-5 h-5 text-cyan-400"></i>
+                    <h2 class="text-lg font-bold text-white">Seçili Donanımları Karşılaştır</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="clearComparisonList()"
+                            data-tooltip-title="Listeyi Boşalt"
+                            data-tooltip="Karşılaştırma tablosuna eklenen tüm ekipmanları temizler."
+                            class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs text-slate-300">
+                        Listeyi Temizle
+                    </button>
+                    <button onclick="closeCompareModal()"
+                            data-tooltip-title="Karşılaştırma Penceresini Kapat"
+                            data-tooltip="Kıyaslama tablosunu kapatır."
+                            class="p-2 rounded-xl bg-slate-900 hover:bg-rose-500/20 border border-slate-700 text-slate-300">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="compare-modal-body" class="p-6 overflow-x-auto overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODAL 3: TELİF TARAMA VE ORİJİNAL YAPIMCI RAPORU
+         ========================================== -->
+    <div id="copyright-modal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+        <div class="cyber-card w-full max-w-4xl rounded-3xl border border-emerald-500/40 bg-slate-900 shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col">
+            <div class="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Medya Tarama & Telif Hakkı Doğrulama Raporu</h2>
+                        <p class="text-xs text-slate-400">Sitedeki tüm ekipman görsellerinin lisans durumu ve orijinal yapımcı listesi</p>
+                    </div>
+                </div>
+                <button onclick="closeCopyrightReportModal()"
+                        data-tooltip-title="Raporu Kapat"
+                        data-tooltip="Telif hakkı doğrulama penceresini kapatır."
+                        class="p-2 rounded-xl bg-slate-900 hover:bg-rose-500/20 border border-slate-700 text-slate-300">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-5 text-xs">
+                <div class="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 space-y-2">
+                    <div class="font-bold text-emerald-300 text-sm flex items-center gap-2">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                        <span>Uygulanan Medya Politikası</span>
+                    </div>
+                    <p class="text-slate-300 leading-relaxed">
+                        İsteğiniz doğrultusunda ticari e-ticaret sitelerine ait telifli/filigranlı ürün fotoğrafları <strong>kullanılmamıştır</strong>. Bunun yerine yalnızca <strong>Creative Commons (CC BY / CC BY-SA)</strong>, <strong>Kamu Malı (Public Domain / CC0)</strong> lisanslı Wikimedia Commons görselleri ve uygulama içinde üretilen <strong>Telifsiz Vektörel PCB Şemaları</strong> yer almaktadır. Her görselin orijinal fotoğrafçısı/yapımcısı hem aşağıda hem de kartların <strong>"İncele"</strong> bölümünde açıkça belirtilmiştir.
+                    </p>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-400 font-mono uppercase text-[11px]">
+                                <th class="py-2.5 px-3">Donanım Adı</th>
+                                <th class="py-2.5 px-3">Orijinal Yapımcı / Fotoğrafçı</th>
+                                <th class="py-2.5 px-3">Lisans Türü</th>
+                                <th class="py-2.5 px-3">İncele</th>
+                            </tr>
+                        </thead>
+                        <tbody id="copyright-table-body" class="divide-y divide-slate-800/70 text-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="mt-16 border-t border-slate-800/90 bg-slate-950/90 py-8 px-4 text-xs text-slate-400">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <span class="font-mono font-bold text-white">HEX<span class="text-cyan-400">LAB</span> DONANIM REHBERİ</span>
+                <span>•</span>
+                <span>Standart / Anormal Arayüz</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-4">
+                <button onclick="openCopyrightReportModal()"
+                        data-tooltip-title="Tüm Orijinal Yapımcıları Gör"
+                        data-tooltip="Görsellerin lisans ve fotoğrafçı bilgilerini tek tabloda açar."
+                        class="text-emerald-400 hover:underline font-mono">
+                    Açık Lisans & Yapımcı Listesi (CC BY-SA / PD)
+                </button>
+                <button onclick="window.scrollTo({top:0, behavior:'smooth'})"
+                        data-tooltip-title="Sayfa Başına Çık"
+                        data-tooltip="Sayfanın en üstündeki menü çubuğuna yumuşak geçiş yapar."
+                        class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 hover:border-cyan-400 transition">
+                    ↑ Yukarı Çık
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ==========================================
+         APPLICATION LOGIC & HARDWARE DATABASE
+         ========================================== -->
+    <script>
+        /**
+         * HARDWARE CATALOG DATABASE
+         * Contains 14 essential items across 3 dedicated pages:
+         * - Page 1: 'arduino' (4 items)
+         * - Page 2: 'esp' (4 items)
+         * - Page 3: 'tools' (6 items)
+         * All images use verified open-licensed Wikimedia Commons URLs + custom high-detail SVG PCB schematics.
+         */
+        const HARDWARE_DATA = [
+            // ================= PAGE 1: ARDUINO EKİPMANLARI =================
+            {
+                id: 'arduino-uno-r3',
+                page: 'arduino',
+                tag: 'Başlangıç',
+                name: 'Arduino Uno R3 (ATmega328P)',
+                subtitle: 'Standart 8-Bit AVR Geliştirme Kartı • 5V Lojik',
+                shortHook: 'Elektroniğe ve kodlamaya başlamanın dünyadaki en popüler, en dayanıklı standart mikrodenetleyici kartı.',
+                description: 'Arduino Uno R3, üzerinde çıkarılabilir ATmega328P mikrodenetleyicisi bulunan, 5V çalışma gerilimine sahip temel geliştirme kartıdır. Yanlış bağlantılara karşı oldukça dayanıklıdır. Sensör okuma, servo/DC motor sürme, LED kontrolü ve temel otomasyon projelerinde ilk tercih edilen karttır.',
+                useCases: ['Eğitim & Kodlama Başlangıcı', 'Çizgi İzleyen / Engelden Kaçan Robot', 'Otomatik Bitki Sulama', '5V Röle Kontrol Sistemleri'],
+                specs: {
+                    'Mikrodenetleyici Çip': 'Microchip ATmega328P (8-bit AVR)',
+                    'Çalışma / Giriş Voltajı': '5V Lojik (VIN: 7V - 12V DC önerilir)',
+                    'Saat Hızı (Frekans)': '16 MHz Kristal Osilatör',
+                    'Dijital / Analog Pinler': '14 Dijital G/Ç (6 tanesi PWM), 6 Analog Giriş (A0-A5)',
+                    'Bellek (Flash / SRAM)': '32 KB Flash, 2 KB SRAM, 1 KB EEPROM',
+                    'Haberleşme Protokolleri': 'UART (Seri), I2C (A4/A5), SPI (Pin 10-13)'
+                },
+                wiringSummary: 'GND → Sensör GND | 5V → Sensör VCC | A4 (SDA) & A5 (SCL) → I2C Ekran/Sensör | Pin 2-13 → Dijital Giriş/Çıkış',
+                sampleCode: `// Arduino Uno R3 - Dahili LED ve Seri Port Testi
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT); // 13 numaralı pindeki LED
+  Serial.begin(9600);
+  Serial.println("Arduino Uno R3 Hazir!");
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(500);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/3/38/Arduino_Uno_-_R3.jpg',
+                creator: 'SparkFun Electronics (Fotoğraf: Ooo.user / Wikimedia Commons)',
+                hardwareDesigner: 'Arduino SA (Açık Kaynak Donanım Referans Tasarımı)',
+                license: 'Creative Commons Attribution 2.0 Generic (CC BY 2.0)',
+                sourceRepo: 'Wikimedia Commons: File:Arduino_Uno_-_R3.jpg',
+                attributionNote: 'Bu fotoğraf SparkFun Electronics tarafından CC BY 2.0 açık lisansıyla paylaşılmıştır; telifli stok görseller yerine orijinal üretici/paylaşımcı atfıyla sunulmaktadır.',
+                boardColor: '#0284c7',
+                chipLabel: 'ATMEGA328P-PU'
+            },
+            {
+                id: 'arduino-nano',
+                page: 'arduino',
+                tag: 'Başlangıç',
+                name: 'Arduino Nano V3.0 (ATmega328P)',
+                subtitle: 'Breadboard Üzerine Takılabilen Kompakt Mikrodenetleyici',
+                shortHook: 'Arduino Uno ile birebir aynı işlemci gücünü parmak boyunda sunan, doğrudan breadboard üzerine geçebilen kompakt kart.',
+                description: 'Arduino Nano, Uno modelindeki ATmega328P işlemcisinin SMD (yüzey montajlı) versiyonunu kullanır. En büyük avantajı erkek header pinleri sayesinde lehim gerektirmeden doğrudan breadboard üzerine takılabilmesi ve Uno’ya kıyasla 2 adet fazladan analog giriş pini (A6 ve A7) sunmasıdır.',
+                useCases: ['Breadboard Üzeri Hızlı Prototipleme', 'Giyilebilir Elektronik Projeleri', 'Küçük Boyutlu Drone / Kumanda Devreleri', 'Taşınabilir Ölçüm Cihazları'],
+                specs: {
+                    'Mikrodenetleyici Çip': 'ATmega328P (SMD Paket)',
+                    'Çalışma Gerilimi': '5V DC (Mini-B veya Type-C USB ile besleme)',
+                    'Saat Hızı': '16 MHz',
+                    'Dijital / Analog Pinler': '14 Dijital (6 PWM), 8 Analog Giriş (A0 - A7)',
+                    'Bellek (Flash / SRAM)': '32 KB Flash, 2 KB SRAM, 1 KB EEPROM',
+                    'Boyutlar': '45 mm x 18 mm (Kompakt Form Faktör)'
+                },
+                wiringSummary: 'Breadboard orta kanalına doğrudan takılır. D2-D12 dijital, A0-A7 analog okuma, A4(SDA)/A5(SCL) I2C bağlantısı içindir.',
+                sampleCode: `// Arduino Nano - Analog Sensör Okuma (A6 Özel Pini)
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  int deger = analogRead(A6); // Nano'ya özel ekstra analog pin
+  Serial.print("Analog Deger: ");
+  Serial.println(deger);
+  delay(250);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e4/Arduino-nano-perspective-transparent.png',
+                creator: 'Laserlicht / Wikimedia Commons (Orijinal Donanım: Gravitech & Arduino SA)',
+                hardwareDesigner: 'Gravitech & Arduino SA',
+                license: 'CC0 1.0 Universal (Public Domain / Kamu Malı)',
+                sourceRepo: 'Wikimedia Commons: File:Arduino-nano-perspective-transparent.png',
+                attributionNote: 'Görsel Wikimedia Commons üzerinde Laserlicht tarafından CC0 (Kamu Malı) olarak yayınlanmıştır ve orijinal yapımcı bilgisiyle sergilenmektedir.',
+                boardColor: '#0369a1',
+                chipLabel: 'ATMEGA328P-AU'
+            },
+            {
+                id: 'arduino-mega-2560',
+                page: 'arduino',
+                tag: 'Çoklu Pin',
+                name: 'Arduino Mega 2560 Rev3',
+                subtitle: '54 Dijital Pinli & 256 KB Bellekli Ağır Hizmet Kartı',
+                shortHook: 'Çok sayıda motor, sensör ve ekranın aynı anda bağlanması gereken 3D yazıcı ve gelişmiş robotik projelerin beyni.',
+                description: 'Arduino Uno veya Nano’daki pin sayısı ve hafıza yetmediğinde devreye Arduino Mega 2560 girer. Tam 54 adet dijital giriş/çıkış pini, 16 analog girişi ve 4 adet bağımsız donanımsal seri haberleşme portu (UART) bulunur. RAMPS gibi 3D yazıcı kartlarının temel kontrolcüsüdür.',
+                useCases: ['3D Yazıcılar (Marlin Firmware) & CNC Makineleri', 'Çok Eksenli Robot Kollar', 'Akıllı Bina Otomasyon Panoları', 'Çoklu Sensör İstasyonları'],
+                specs: {
+                    'Mikrodenetleyici Çip': 'ATmega2560 (8-bit AVR)',
+                    'Çalışma Gerilimi': '5V DC',
+                    'Saat Hızı': '16 MHz',
+                    'Pin Kapasitesi': '54 Dijital G/Ç (15 PWM), 16 Analog Giriş',
+                    'Bellek (Flash / SRAM)': '256 KB Flash (Uno’nun 8 katı), 8 KB SRAM, 4 KB EEPROM',
+                    'Seri Portlar': '4x Donanımsal UART, I2C (Pin 20/21), SPI (Pin 50-53)'
+                },
+                wiringSummary: 'I2C: Pin 20 (SDA) & Pin 21 (SCL) | Ekstra Seri Portlar: Serial1 (18/19), Serial2 (16/17), Serial3 (14/15)',
+                sampleCode: `// Arduino Mega 2560 - Çoklu Donanımsal Seri Port Kullanımı
+void setup() {
+  Serial.begin(115200);  // Bilgisayar ile haberleşme
+  Serial1.begin(9600);   // 18 (TX1) ve 19 (RX1) pinlerindeki modül
+  Serial.println("Mega 2560 Çoklu UART Aktif");
+}
+
+void loop() {
+  if (Serial1.available()) {
+    Serial.write(Serial1.read());
+  }
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/b8/Arduino_Mega_2560.jpg',
+                creator: 'SparkFun Electronics (Wikimedia Commons Açık Arşiv)',
+                hardwareDesigner: 'Arduino SA (Açık Kaynak Referans Şema)',
+                license: 'Creative Commons Attribution 2.0 Generic (CC BY 2.0)',
+                sourceRepo: 'Wikimedia Commons: File:Arduino_Mega_2560.jpg',
+                attributionNote: 'Bu fotoğraf SparkFun Electronics tarafından CC BY 2.0 açık lisansıyla yayınlanmıştır. Orijinal üretici ve fotoğraf kaynağı inceleme künyesinde belirtilmiştir.',
+                boardColor: '#1d4ed8',
+                chipLabel: 'ATMEGA2560'
+            },
+            {
+                id: 'arduino-leonardo',
+                page: 'arduino',
+                tag: 'Çoklu Pin',
+                name: 'Arduino Leonardo (ATmega32U4)',
+                subtitle: 'Bilgisayara Klavye, Fare veya Joystick Olarak Görünebilen Kart',
+                shortHook: 'Dahili USB haberleşme çipi sayesinde bilgisayara takıldığında gerçek bir klavye, fare veya oyun kolu gibi davranabilen özel Arduino.',
+                description: 'Arduino Leonardo’yu diğer kartlardan ayıran en önemli özellik kullandığı ATmega32U4 işlemcisidir. Bu işlemcinin içinde doğrudan USB kontrolcüsü yer alır. Böylece `Keyboard.h` ve `Mouse.h` kütüphaneleri ile bilgisayarınıza otomatik tuş basan makro klavyeler, direksiyon setleri veya engelleyici donanımlar yapabilirsiniz.',
+                useCases: ['Özel Makro Klavye (Stream Deck) Yapımı', 'Oyun Simülasyon Direksiyon ve Pedal Seti', 'Engelli Bireyler İçin Özel Fare/Kontrolcü', 'USB HID Otomasyon Araçları'],
+                specs: {
+                    'Mikrodenetleyici Çip': 'ATmega32U4 (Dahili USB 2.0 Tam Hız Kontrolcü)',
+                    'Çalışma Gerilimi': '5V DC',
+                    'Saat Hızı': '16 MHz',
+                    'Pin Kapasitesi': '20 Dijital G/Ç (7 PWM, 12 tanesi Analog olarak kullanılabilir)',
+                    'Bellek (Flash / SRAM)': '32 KB Flash, 2.5 KB SRAM, 1 KB EEPROM',
+                    'Özel Yetenek': 'Doğrudan USB HID (Klavye / Fare / Joystick Emülasyonu)'
+                },
+                wiringSummary: 'Pin 2 (SDA) ve Pin 3 (SCL) I2C içindir. Micro-USB kablo ile bilgisayara bağlandığında doğrudan HID cihazı olarak tanınır.',
+                sampleCode: `#include <Keyboard.h>
+
+void setup() {
+  pinMode(2, INPUT_PULLUP); // 2. pine bağlı buton
+  Keyboard.begin();
+}
+
+void loop() {
+  if (digitalRead(2) == LOW) {
+    Keyboard.print("Merhaba! Leonardo Klavye Aktif.");
+    delay(1000);
+  }
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/5/51/Arduino_Leonardo.jpg',
+                creator: 'snootlab / Wikimedia Commons',
+                hardwareDesigner: 'Arduino SA (Açık Donanım Tasarımı)',
+                license: 'Creative Commons Attribution-ShareAlike 2.0 (CC BY-SA 2.0)',
+                sourceRepo: 'Wikimedia Commons: File:Arduino_Leonardo.jpg',
+                attributionNote: 'Fotoğraf Snootlab tarafından CC BY-SA 2.0 lisansıyla paylaşılmıştır; telif kurallarına uygun olarak orijinal fotoğrafçıya atıf yapılmıştır.',
+                boardColor: '#0e7490',
+                chipLabel: 'ATMEGA32U4'
+            },
+
+            // ================= PAGE 2: ESP EKİPMANLARI =================
+            {
+                id: 'esp32-devkitc',
+                page: 'esp',
+                tag: 'Wi-Fi + BLE',
+                name: 'ESP32-WROOM-32 DevKitC',
+                subtitle: 'Çift Çekirdek 240 MHz • Wi-Fi + Bluetooth (BLE) Süper İşlemci',
+                shortHook: 'Hem Wi-Fi hem Bluetooth içeren, Arduino Uno’dan 15 kat daha hızlı saat frekansına sahip modern IoT projelerinin lider kartı.',
+                description: 'ESP32 DevKitC, Espressif Systems tarafından üretilen çift çekirdekli Xtensa LX6 işlemcisine sahiptir. 240 MHz hızında çalışır ve 520 KB SRAM belleği vardır. Sensör verilerini buluta göndermek, kendi üzerinde şık bir web arayüzü barındırmak, Bluetooth ile cep telefonuna bağlanmak ve ses/ekran işlemek için endüstri standardıdır.',
+                useCases: ['Akıllı Ev Sistemleri (Home Assistant / ESPHome)', 'Web Sunuculu Uzaktan Röle & Sensör Kontrolü', 'Bluetooth (BLE) Beacon ve Mobil Uygulama Eşleşmesi', 'Kablosuz Hava İstasyonları'],
+                specs: {
+                    'İşlemci Mimarisi': 'Çift Çekirdek Tensilica Xtensa 32-bit LX6 (160 / 240 MHz)',
+                    'Çalışma Gerilimi (Lojik)': '3.3V DC (ÖNEMLİ: Pinlere doğrudan 5V verilmemelidir)',
+                    'Kablosuz İletişim': '802.11 b/g/n Wi-Fi (150 Mbps) + Bluetooth v4.2 BR/EDR ve BLE',
+                    'Bellek': '520 KB SRAM + 4 MB / 8 MB Harici SPI Flash',
+                    'Gelişmiş Pinler': '18x 12-bit ADC, 2x 8-bit DAC, 10x Kapasitif Dokunmatik Pin',
+                    'Haberleşme': '3x UART, 2x I2C (Varsayılan: GPIO 21 SDA, GPIO 22 SCL), 4x SPI'
+                },
+                wiringSummary: '3V3 → Sensör VCC | GND → GND | GPIO 21 → I2C SDA | GPIO 22 → I2C SCL | GPIO 34-39 → Sadece Giriş (ADC)',
+                sampleCode: `#include <WiFi.h>
+
+const char* ssid = "WiFi_Adiniz";
+const char* password = "Sifreniz";
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  Serial.print("Wi-Fi baglantisi kuruluyor");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nBaglandi! IP Adresi: " + WiFi.localIP().toString());
+}
+
+void loop() {}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/3/3c/ESP32_Espressif_ESP-WROOM-32_Dev_Board.jpg',
+                creator: 'weimins / Wikimedia Commons',
+                hardwareDesigner: 'Espressif Systems (ESP-WROOM-32 Referans Kartı)',
+                license: 'Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)',
+                sourceRepo: 'Wikimedia Commons: File:ESP32_Espressif_ESP-WROOM-32_Dev_Board.jpg',
+                attributionNote: 'Bu fotoğraf Wikimedia Commons kullanıcısı "weimins" tarafından CC BY-SA 4.0 açık lisansıyla yayınlanmıştır; orijinal yapımcı olarak açıkça belirtilmiştir.',
+                boardColor: '#6d28d9',
+                chipLabel: 'ESP32-WROOM-32'
+            },
+            {
+                id: 'esp8266-nodemcu',
+                page: 'esp',
+                tag: 'Wi-Fi + BLE',
+                name: 'ESP8266 NodeMCU V3 (ESP-12E)',
+                subtitle: 'Ekonomik Wi-Fi Mikrodenetleyici • Akıllı Ev Projelerinin Klasik Kartı',
+                shortHook: 'Çok uygun maliyeti ve dahili Wi-Fi çipi ile herhangi bir sensörü birkaç dakikada internete bağlamanızı sağlayan kompakt kart.',
+                description: 'ESP8266 NodeMCU, üzerinde ESP-12E Wi-Fi modülü ve USB-Seri dönüştürücü barındıran açık kaynaklı bir IoT geliştirme kartıdır. Tek bir sensörü (örneğin sıcaklık sensörü veya tekli röle) internete bağlamak istediğinizde ESP32 kadar fazla pine ihtiyaç duymuyorsanız en ekonomik ve pratik çözümdür.',
+                useCases: ['Kablosuz Sıcaklık & Nem Takip Düğümü', 'Telegram Botu ile Uzaktan Cihaz Açma/Kapama', 'API Üzerinden Döviz/Hava Durumu Çeken Masaüstü Ekran', 'Basit MQTT Sensör İstemcisi'],
+                specs: {
+                    'İşlemci Mimarisi': 'Tensilica L106 32-bit RISC (80 MHz veya 160 MHz)',
+                    'Çalışma Gerilimi': '3.3V Lojik (USB 5V girişinde dahili 3.3V regülatör vardır)',
+                    'Kablosuz İletişim': 'IEEE 802.11 b/g/n Wi-Fi (Dahili PCB Anten)',
+                    'Bellek': '4 MB Flash Bellek, ~80 KB Kullanıcı Verisi RAM',
+                    'Pin Yapısı': '11 Dijital GPIO Pini (D0-D8), 1 Analog Giriş (A0 - Maks 3.3V)',
+                    'Haberleşme': 'I2C (D1: SCL, D2: SDA), SPI, UART'
+                },
+                wiringSummary: '3V3 → Sensör VCC | G → GND | D1 (GPIO5) → I2C SCL | D2 (GPIO4) → I2C SDA | A0 → Analog Okuma',
+                sampleCode: `#include <ESP8266WiFi.h>
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT); // NodeMCU dahili mavi LED
+  Serial.println("ESP8266 NodeMCU Baslatildi!");
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, LOW);  // NodeMCU'da LOW aktif eder
+  delay(400);
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(600);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/NodeMCU_DEVKIT_1.0.jpg',
+                creator: 'MakeMagazinDE / Wikimedia Commons',
+                hardwareDesigner: 'NodeMCU Team & Espressif Systems',
+                license: 'Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)',
+                sourceRepo: 'Wikimedia Commons: File:NodeMCU_DEVKIT_1.0.jpg',
+                attributionNote: 'Görsel MakeMagazinDE tarafından CC BY-SA 4.0 lisansıyla paylaşılmıştır. Orijinal fotoğrafçı ve NodeMCU açık kaynak ekibine atıf yapılmıştır.',
+                boardColor: '#7c3aed',
+                chipLabel: 'ESP8266MOD'
+            },
+            {
+                id: 'esp32-cam',
+                page: 'esp',
+                tag: 'Kamera / AI',
+                name: 'ESP32-CAM (OV2640 Kamera Modüllü)',
+                subtitle: 'Kablosuz Canlı Video Yayını, Fotoğraf Kaydı ve Yüz Tanıma Kartı',
+                shortHook: 'Üzerinde 2 MP kamera, MicroSD kart yuvası ve güçlü flaş LED barındıran, Wi-Fi üzerinden canlı yayın yapabilen mini kamera kartı.',
+                description: 'AI-Thinker tarafından geliştirilen ESP32-CAM, küçük boyutuna rağmen üzerinde 2 Megapiksel OV2640 kamera, harici 4 MB PSRAM (görüntü tampon belleği) ve MicroSD kart okuyucu bulundurur. Kablosuz güvenlik kamerası, kapı zili kamerası, QR kod okuyucu veya zaman aralıklı (time-lapse) fotoğraf kaydedici yapmak için kullanılır.',
+                useCases: ['Wi-Fi IP Güvenlik Kamerası (RTSP / Web Stream)', 'Akıllı Kapı Zili (Telegram’a Fotoğraf Gönderen)', '3D Yazıcı Uzaktan Baskı İzleme Kamerası', 'Temel Görüntü İşleme ve QR Kod Okuma'],
+                specs: {
+                    'İşlemci & Bellek': 'Çift Çekirdek ESP32-S + 520 KB SRAM + 4 MB Harici PSRAM',
+                    'Kamera Sensörü': 'OV2640 (1600x1200 UXGA çözünürlük, JPEG sıkıştırma destekli)',
+                    'Depolama': 'Dahili MicroSD Kart Yuvası (Fotoğraf ve veri kaydı için)',
+                    'Besleme Gerilimi': '5V पिनinden en az 500mA kararlı akım önerilir (3.3V lojik)',
+                    'Programlama Notu': 'Üzerinde USB portu olmadığı için FTDI USB-TTL veya ESP32-CAM-MB alt kartı ile yükleme yapılır.',
+                    'Dahili Aydınlatma': 'GPIO 4 üzerinde yüksek parlaklıklı Flaş LED'
+                },
+                wiringSummary: 'Programlama sırasında IO0 pini GND’ye bağlanır; kod yüklendikten sonra IO0 bağlantısı çıkarılıp Reset tuşuna basılır.',
+                sampleCode: `// ESP32-CAM Üzerindeki Yüksek Güçlü Flaş LED Kontrolü (GPIO 4)
+#define FLASH_LED_PIN 4
+
+void setup() {
+  pinMode(FLASH_LED_PIN, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(FLASH_LED_PIN, HIGH); // Flasi yak
+  delay(200);
+  digitalWrite(FLASH_LED_PIN, LOW);  // Flasi sondur
+  delay(2000);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/26/ESP32-CAM_board.jpg',
+                creator: 'Rainer Halama / Wikimedia Commons (Orijinal Donanım: AI-Thinker)',
+                hardwareDesigner: 'AI-Thinker & Espressif Systems',
+                license: 'Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)',
+                sourceRepo: 'Wikimedia Commons + Dahili Açık Teknik PCB Diyagramı',
+                attributionNote: 'Fotoğraf ve teknik şema açık lisanslı arşivden (Rainer Halama / AI-Thinker açık dokümantasyonu) alınmıştır; sağ üstten PCB Şeması görünümüne de geçebilirsiniz.',
+                boardColor: '#4c1d95',
+                chipLabel: 'ESP32-S + OV2640'
+            },
+            {
+                id: 'esp32-s3',
+                page: 'esp',
+                tag: 'Kamera / AI',
+                name: 'ESP32-S3 DevKitC-1 (AI & USB OTG)',
+                subtitle: 'Yapay Zeka Vektör Komut Setli & Çift Type-C Portlu Yeni Nesil MCU',
+                shortHook: 'TinyML (mikro yapay zeka), sesli komut algılama ve doğrudan USB cihaz bağlantısı için güçlendirilmiş yeni nesil ESP32.',
+                description: 'ESP32-S3, klasik ESP32’nin yapay zeka (Edge AI) ve USB yetenekleriyle donatılmış üst modelidir. Xtensa LX7 çift çekirdekli işlemcisi sinir ağları ve sinyal işleme (ses tanıma, görüntü sınıflandırma) için özel vektör komutlarına sahiptir. Ayrıca tıpkı Arduino Leonardo gibi doğal USB OTG desteği sunar.',
+                useCases: ['Çevrimdışı Sesli Komut Algılama (Wake-Word)', 'Edge Impulse / TensorFlow Lite Mikro Yapay Zeka', 'RGB Dokunmatik Ekranlı (LVGL) Akıllı Kontrol Panelleri', 'Kablosuz USB Klavye/Fare Köprüsü'],
+                specs: {
+                    'İşlemci': 'Çift Çekirdek Xtensa 32-bit LX7 @ 240 MHz + AI Vektör Hızlandırıcı',
+                    'Kablosuz İletişim': '2.4 GHz Wi-Fi (802.11 b/g/n) + Bluetooth 5 (LE / Long Range)',
+                    'Bellek': '512 KB SRAM + 8 MB / 16 MB Flash + 8 MB Octal PSRAM opsiyonu',
+                    'Pin Sayısı': '45 Programlanabilir GPIO (Klasik ESP32’den daha fazla pin)',
+                    'USB Desteği': 'Doğal Tam Hız USB 2.0 OTG + Ayrı USB-UART Köprü Portu',
+                    'Çalışma Gerilimi': '3.3V Lojik'
+                },
+                wiringSummary: 'Çift USB portludur: "UART" portu klasik kod yükleme, "USB" portu ise doğrudan yerel USB/JTAG ve HID haberleşmesi içindir.',
+                sampleCode: `// ESP32-S3 Dahili Sıcaklık Sensörü ve Çekirdek Bilgisi
+void setup() {
+  Serial.begin(115200);
+  Serial.printf("ESP32-S3 Calisiyor! Cekirdek: %d\\n", xPortGetCoreID());
+  Serial.printf("Toplam PSRAM: %d byte\\n", ESP.getPsramSize());
+}
+
+void loop() {
+  delay(2000);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/3/3c/ESP32_Espressif_ESP-WROOM-32_Dev_Board.jpg',
+                creator: 'Espressif Systems Open Hardware Docs / weimins (CC BY-SA 4.0)',
+                hardwareDesigner: 'Espressif Systems',
+                license: 'Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)',
+                sourceRepo: 'Espressif Open Docs & Wikimedia Commons Arşivi',
+                attributionNote: 'Görsel Espressif Systems açık donanım dokümantasyonu ve CC BY-SA 4.0 Wikimedia arşivine dayanmaktadır; orijinal yapımcı bilgisi korunmuştur.',
+                boardColor: '#5b21b6',
+                chipLabel: 'ESP32-S3-WROOM-1'
+            },
+
+            // ================= PAGE 3: SENSÖRLER & YARDIMCI ALETLER =================
+            {
+                id: 'hc-sr04-ultrasonic',
+                page: 'tools',
+                tag: 'Sensör',
+                name: 'HC-SR04 Ultrasonik Mesafe Sensörü',
+                subtitle: 'Ses Dalgaları İle 2 cm – 400 cm Arası Temassız Uzaklık Ölçer',
+                shortHook: 'Yarasalar gibi ultrasonik ses dalgası gönderip yankı süresini ölçerek karşısındaki nesnenin uzaklığını santimetre cinsinden bulan sensör.',
+                description: 'HC-SR04, üzerinde bir ses vericisi (Trigger) ve bir ses alıcısı (Echo) bulunan en popüler mesafe sensörüdür. Engelden kaçan robotlarda, otopark doluluk sistemlerinde, sıvı tankı seviye ölçümünde ve temassız el dezenfektanı gibi projelerde hem Arduino hem de ESP kartlarıyla kullanılır.',
+                useCases: ['Engelden Kaçan Otonom Robot Araç', 'Akıllı Otopark ve Araç Park Sensörü', 'Su Deposu Doluluk Seviyesi Ölçümü', 'Temassız Yaklaşım Anahtarı'],
+                specs: {
+                    'Uyumlu Kartlar': 'Tüm Arduino Modelleri (5V) ve ESP32/ESP8266 (Echo pininde direnç ile)',
+                    'Çalışma Gerilimi': '5V DC (Akım tüketimi: 15 mA)',
+                    'Ölçüm Aralığı': '2 cm – 400 cm (Doğruluk payı: ~3 mm)',
+                    'Ses Frekansı': '40 kHz Ultrasonik Dalga',
+                    'Pin Sayısı': '4 Pin: VCC, Trig (Tetik), Echo (Yankı), GND'
+                },
+                wiringSummary: 'VCC → 5V | GND → GND | Trig → Dijital Çıkış (Örn: Pin 9) | Echo → Dijital Giriş (Örn: Pin 10)',
+                sampleCode: `// HC-SR04 Mesafe Ölçüm Kodu (Arduino & ESP Uyumlu)
+const int trigPin = 9, echoPin = 10;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+}
+
+void loop() {
+  digitalWrite(trigPin, LOW); delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH); delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  long sure = pulseIn(echoPin, HIGH);
+  float mesafeCm = sure * 0.0343 / 2;
+  Serial.print("Mesafe: "); Serial.print(mesafeCm); Serial.println(" cm");
+  delay(300);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/c/c0/HC-SR04_ultrasonic_sensor.jpg',
+                creator: 'Marques / Wikimedia Commons',
+                hardwareDesigner: 'Açık Standart Ultrasonik Modül Tasarımı',
+                license: 'Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)',
+                sourceRepo: 'Wikimedia Commons: File:HC-SR04_ultrasonic_sensor.jpg',
+                attributionNote: 'Bu fotoğraf Wikimedia Commons üzerinde "Marques" tarafından CC BY-SA 4.0 açık lisansıyla paylaşılmıştır ve orijinal fotoğrafçıya atıf yapılmıştır.',
+                boardColor: '#047857',
+                chipLabel: 'HC-SR04 40kHz'
+            },
+            {
+                id: 'hc-sr501-pir',
+                page: 'tools',
+                tag: 'Sensör',
+                name: 'HC-SR501 PIR Hareket Sensörü',
+                subtitle: 'Kızılötesi Termal Işınım İle İnsan ve Canlı Hareketi Algılayıcı',
+                shortHook: 'Ortamdaki insan veya sıcakkanlı canlıların yaydığı kızılötesi ısı değişimini fark ederek alarm veya aydınlatmayı tetikleyen modül.',
+                description: 'HC-SR501, üzerindeki beyaz Fresnel kubbe lens sayesinde geniş bir açıyla (110°) ortamdaki kızılötesi enerji değişimlerini izler. Bir insan odaya girdiğinde dijital çıkış pinini 3.3V (HIGH) seviyesine çeker. Üzerindeki iki turuncu potansiyometre ile algılama mesafesi (3-7 metre) ve tetikleme süresi ayarlanabilir.',
+                useCases: ['Hırsız Alarmı ve Güvenlik Bildirim Sistemi', 'Koridor Otomatik Lamba Yakma Devresi', 'ESP32-CAM İçin Hareket Olduğunda Fotoğraf Çekme Tetikleyicisi', 'Enerji Tasarruflu Akıllı Oda Sistemleri'],
+                specs: {
+                    'Uyumlu Kartlar': 'Arduino Uno/Nano/Mega ve ESP32/ESP8266 (Çıkışı 3.3V olduğu için ESP’ye doğrudan uyumludur)',
+                    'Besleme Gerilimi': '4.5V – 20V DC (Çok düşük bekleme akımı: < 50 µA)',
+                    'Çıkış Sinyali': 'Hareket varken 3.3V (HIGH), hareket yokken 0V (LOW)',
+                    'Algılama Mesafesi': '3 metre ile 7 metre arası ayarlanabilir (110° konik açı)',
+                    'Ayar Potları': 'Hassasiyet (Mesafe) Ayarı ve Zaman Gecikmesi (3 sn - 300 sn) Ayarı'
+                },
+                wiringSummary: 'VCC → 5V | GND → GND | OUT (Orta Pin) → Arduino/ESP herhangi bir Dijital Giriş Pini (Örn: Pin 2 veya GPIO 14)',
+                sampleCode: `// HC-SR501 PIR Hareket Algılama Kodu
+const int pirPin = 2;
+
+void setup() {
+  pinMode(pirPin, INPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  if (digitalRead(pirPin) == HIGH) {
+    Serial.println("DIKKAT: Ortamda hareket algilandi!");
+    delay(1000);
+  }
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/2f/PIR_sensor_module.jpg',
+                creator: 'oskay (Windell Oskay / Evil Mad Scientist Laboratories)',
+                hardwareDesigner: 'BISS0001 PIR Kontrolcü Standart Modülü',
+                license: 'Creative Commons Attribution 2.0 Generic (CC BY 2.0)',
+                sourceRepo: 'Wikimedia Commons: File:PIR_sensor_module.jpg',
+                attributionNote: 'Fotoğraf Windell Oskay (Evil Mad Scientist) tarafından CC BY 2.0 açık lisansıyla yayınlanmıştır. Orijinal yapımcı bilgisiyle sunulmaktadır.',
+                boardColor: '#059669',
+                chipLabel: 'PIR BISS0001'
+            },
+            {
+                id: 'mpu6050-imu',
+                page: 'tools',
+                tag: 'Sensör',
+                name: 'MPU6050 (GY-521) 6-Eksen İvmeölçer & Jiroskop',
+                subtitle: 'Eğim, Açı, Dönüş Hızı ve Sarsıntı Ölçen Hassas Hareket Sensörü (I2C)',
+                shortHook: 'Kendi kendine dengede duran robotların, uçuş kontrolcülerinin ve adım sayarların eğim ve dönüş açısını ölçen 6 eksenli sensör.',
+                description: 'MPU6050 (GY-521 modülü), tek bir çip içinde 3 eksenli MEMS ivmeölçer ve 3 eksenli MEMS jiroskop barındırır. Ayrıca içinde yerleşik Dijital Hareket İşlemcisi (DMP) ve sıcaklık sensörü bulunur. Sadece 2 kablo (I2C: SDA ve SCL) üzerinden Arduino veya ESP kartlarına saniyede yüzlerce kez X, Y, Z açı verisi gönderir.',
+                useCases: ['İki Tekerlekli Kendi Dengesini Kurabilen Robot', 'Drone / Quadcopter Uçuş Stabilizasyonu', 'El Hareketiyle Kontrol Edilen Kumanda Eldiveni', 'Deprem ve Titreşim Kayıt İstasyonu'],
+                specs: {
+                    'Uyumlu Kartlar': 'Arduino (5V/3.3V) ve ESP32/ESP8266 (I2C üzerinden tam uyumlu)',
+                    'Çalışma Gerilimi': '3.3V – 5V DC (Modül üzerinde dahili LDO regülatör mevcuttur)',
+                    'Ölçüm Eksenleri': '3 Eksen İvmeölçer (±2g, ±4g, ±8g, ±16g) + 3 Eksen Jiroskop',
+                    'Haberleşme': 'I2C Veri Yolu (Standart I2C Adresi: 0x68 veya AD0=HIGH ise 0x69)',
+                    'ADC Çözünürlüğü': '16-bit Donanımsal Analog-Dijital Dönüştürücü'
+                },
+                wiringSummary: 'VCC → 3.3V/5V | GND → GND | SCL → Arduino A5 (veya ESP32 GPIO22) | SDA → Arduino A4 (veya ESP32 GPIO21)',
+                sampleCode: `#include <Wire.h>
+
+void setup() {
+  Wire.begin();
+  Serial.begin(115200);
+  Wire.beginTransmission(0x68); // MPU6050 I2C adresi
+  Wire.write(0x6B);             // Guc yonetimi kaydi
+  Wire.write(0);                // Sensoru uyku modundan cikar
+  Wire.endTransmission(true);
+}
+
+void loop() {
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B); // X ekseni ivme baslangic adresi
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x68, 6, true);
+  int16_t AcX = Wire.read() << 8 | Wire.read();
+  Serial.print("X Ekseni Egim Ham Veri: "); Serial.println(AcX);
+  delay(200);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/91/GY-521_breakout_board_for_MPU-6050.jpg',
+                creator: 'Coldbeer / Wikimedia Commons',
+                hardwareDesigner: 'InvenSense (TDK) MPU-6050 / GY-521 Açık Modül',
+                license: 'Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0)',
+                sourceRepo: 'Wikimedia Commons: File:GY-521_breakout_board_for_MPU-6050.jpg',
+                attributionNote: 'Bu fotoğraf Wikimedia Commons kullanıcısı "Coldbeer" tarafından CC BY-SA 3.0 lisansıyla paylaşılmıştır. Orijinal fotoğrafçıya atıf yapılmıştır.',
+                boardColor: '#0d9488',
+                chipLabel: 'MPU-6050 MEMS'
+            },
+            {
+                id: 'ssd1306-oled',
+                page: 'tools',
+                tag: 'Ekran & Alet',
+                name: 'SSD1306 0.96" I2C OLED Ekran Modülü',
+                subtitle: '128x64 Piksel Yüksek Kontrastlı, Arka Işık Gerektirmeyen Grafik Ekran',
+                shortHook: 'Sadece 4 pin ile bağlanan, sensör değerlerini, grafikleri, ikonları ve menüleri cam gibi net gösteren mini OLED ekran.',
+                description: 'SSD1306 sürücü çipli 0.96 inç OLED ekran, klasik LCD ekranların aksine arka aydınlatmaya (backlight) ihtiyaç duymaz; her piksel kendi ışığını üretir. Bu sayede hem çok az enerji harcar hem de karanlıkta ve gün ışığında olağanüstü kontrast sunar. Arduino ve ESP projelerinde sensör verilerini ekrana yazdırmak için en çok tercih edilen ekrandır.',
+                useCases: ['Sensör Değerlerini Gösteren Masaüstü Bilgi Ekranı', 'ESP32 Wi-Fi Durum ve IP Adresi Göstergesi', 'Taşınabilir Mini Oyun Konsolu veya Saat', 'Menü Tabanlı Kullanıcı Arayüzleri'],
+                specs: {
+                    'Uyumlu Kartlar': 'Arduino Uno/Nano/Mega ve ESP8266/ESP32 (3.3V ve 5V tam uyumlu)',
+                    'Çözünürlük': '128 x 64 Piksel (Monokrom Beyaz, Mavi veya Sarı-Mavi)',
+                    'Haberleşme Protokolü': 'I2C (Sadece SDA ve SCL pinleri - Adres: 0x3C)',
+                    'Çalışma Gerilimi': '3.3V – 5V DC',
+                    'Popüler Kütüphaneler': 'Adafruit_SSD1306, U8g2, ThingPulse OLED'
+                },
+                wiringSummary: 'GND → GND | VCC → 3.3V veya 5V | SCL → I2C Saat Pini (Arduino A5 / ESP32 22) | SDA → I2C Veri Pini (Arduino A4 / ESP32 21)',
+                sampleCode: `// SSD1306 OLED Ekran I2C Tarama ve Başlatma Özeti
+#include <Wire.h>
+// Not: Adafruit_SSD1306 kutuphanesi ile 0x3C adresinden baslatilir:
+// display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+// display.println("HEXLAB Donanim Atlasi");
+// display.display();`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/3/34/OLED_Display_0.96_I2C.jpg',
+                creator: 'Fritzing & Wikimedia Open Hardware Contributors',
+                hardwareDesigner: 'Solomon Systech SSD1306 Modülü',
+                license: 'Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)',
+                sourceRepo: 'Wikimedia Commons & Dahili Vektör PCB Şeması',
+                attributionNote: 'Açık lisanslı donanım arşivi ve dahili telifsiz vektör grafik şeması kullanılmıştır. Orijinal çip üreticisi Solomon Systech ve açık kaynak topluluğuna atıf yapılmıştır.',
+                boardColor: '#0891b2',
+                chipLabel: 'SSD1306 128x64'
+            },
+            {
+                id: 'dht22-sensor',
+                page: 'tools',
+                tag: 'Sensör',
+                name: 'DHT22 (AM2302) Hassas Sıcaklık ve Nem Sensörü',
+                subtitle: 'Kalibre Edilmiş Dijital Sıcaklık (-40°C / +80°C) ve Bağıl Nem Ölçer',
+                shortHook: 'Mavi renkli DHT11’in çok daha hassas ve geniş aralıklı üst versiyonu; tek bir dijital pinden hem sıcaklığı hem nemi okur.',
+                description: 'DHT22 (AM2302), içinde kapasitif bir nem sensörü ve bir termistör (sıcaklık sensörü) barındıran dijital çıkışlı bir modüldür. Analog sensörlerin aksine sinyali kendi içinde dijitale çevirip kalibre edilmiş olarak mikrodenetleyiciye gönderir. Sera otomasyonu, kuluçka makineleri ve akıllı oda termostatlarında kullanılır.',
+                useCases: ['Akıllı Ev Oda Termostatı ve Nem Kontrolü', 'Sera, Teraryum ve Kuluçka Makinesi İklimlendirme', 'ESP8266/ESP32 ile İnternet Üzerinden Hava İstasyonu', 'Sunucu Odası Sıcaklık Alarm Sistemi'],
+                specs: {
+                    'Uyumlu Kartlar': 'Tüm Arduino ve ESP Kartları (3.3V – 5.5V arası doğrudan çalışır)',
+                    'Sıcaklık Ölçüm Aralığı': '-40°C ile +80°C arası (±0.5°C hassasiyet)',
+                    'Nem Ölçüm Aralığı': '%0 ile %100 Bağıl Nem (RH) (±%2 hassasiyet)',
+                    'Haberleşme': 'Tek Hatlı Dijital Sinyal (One-Wire benzeri özel protokol)',
+                    'Örnekleme Hızı': '2 saniyede 1 okuma (0.5 Hz)'
+                },
+                wiringSummary: 'VCC (+) → 3.3V veya 5V | GND (-) → GND | OUT (Data) → Dijital Pin (Örn: Pin 4 veya GPIO 4)',
+                sampleCode: `// DHT22 Sıcaklık ve Nem Okuma (DHT sensor library ile)
+#include "DHT.h"
+#define DHTPIN 4
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+}
+
+void loop() {
+  float nem = dht.readHumidity();
+  float sicaklik = dht.readTemperature();
+  Serial.print("Sicaklik: "); Serial.print(sicaklik);
+  Serial.print(" C | Nem: %"); Serial.println(nem);
+  delay(2000);
+}`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e1/DHT22_temperature-humidity_sensor.jpg',
+                creator: 'Aosong Electronics / Wikimedia Commons Açık Katkıcıları',
+                hardwareDesigner: 'Aosong (Guangzhou) Electronics Co.',
+                license: 'Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0)',
+                sourceRepo: 'Wikimedia Commons: DHT22 / AM2302 Açık Arşivi',
+                attributionNote: 'Görsel ve teknik şema CC BY-SA açık lisansı kapsamında orijinal üretici Aosong Electronics ve Wikimedia Commons katkıcılarına atıfla sunulmaktadır.',
+                boardColor: '#059669',
+                chipLabel: 'DHT22 / AM2302'
+            },
+            {
+                id: 'multimeter-breadboard-kit',
+                page: 'tools',
+                tag: 'Ekran & Alet',
+                name: 'Dijital Multimetre & Breadboard Prototipleme Seti',
+                subtitle: 'Arduino ve ESP Devrelerini Kurmak, Ölçmek ve Arıza Bulmak İçin Temel Aletler',
+                shortHook: 'Mikrodenetleyici projelerinde voltaj ölçmek, kısa devre kontrolü yapmak ve lehim yapmadan devre kurmak için zorunlu laboratuvar aletleri.',
+                description: 'Arduino ve ESP kartlarını güvenle kullanabilmek için iki temel yardımcı alet şarttır: 1) Lehimsiz Breadboard ve Jumper Kablolar, parçaları saniyeler içinde birbirine bağlamanızı sağlar. 2) Dijital Multimetre (Avometre), besleme geriliminin 3.3V mu 5V mu olduğunu doğrulamak, direnç değerini ölçmek ve kopuk kabloları sesli kısa devre (continuity) modunda bulmak için kartlarınızı yanmaktan kurtaran en önemli alettir.',
+                useCases: ['ESP32’ye Bağlamadan Önce Sensör Voltajını (3.3V/5V) Ölçmek', 'Kablo Kopukluğu ve Kısa Devre Tespiti (Buzzer Modu)', 'Lehim Yapmadan Hızlı Devre Kurulumu ve Testi', 'Pil ve Adaptör Akım/Gerilim Kontrolü'],
+                specs: {
+                    'Multimetre Ölçüm Modları': 'DC/AC Voltaj (V), Doğru Akım (mA/A), Direnç (Ω), Diyot ve Sesli Kısa Devre Testi',
+                    'Breadboard Yapısı': '830 Pinli Standart Boy (İki yanda + ve - güç hatları, ortada 5’li bağlı sütunlar)',
+                    'Jumper Kablo Tipleri': 'Erkek-Erkek (Breadboard içi), Dişi-Erkek (ESP/Sensör bağlantısı), Dişi-Dişi',
+                    'Güvenlik Faydası': 'Yanlış voltaj nedeniyle Arduino ve ESP işlemcilerinin yanmasını %95 oranında önler.'
+                },
+                wiringSummary: 'Multimetre Siyah Prob → COM 유vası | Kırmızı Prob → VΩmA Yuvası | Breadboard üst/alt yatay şeritler güç (VCC/GND), dikey 5’li delikler eleman bacakları içindir.',
+                sampleCode: `// Multimetre ile Donanım Kontrol Rehberi (Kod Yüklemeden Önce 3 Altın Kural):
+// 1. Multimetreyi 20V DC kademesine alin; 5V ve 3.3V pinlerini olcun.
+// 2. Güç kapaliyken (Buzzer modunda) VCC ve GND arasinda kisa devre olmadigini dogrulayin.
+// 3. Breadboard uzerinde tum modullerin GND (Toprak) hatlarini birbirine birlestirin.`,
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/d/d3/Breadboard_scheme.svg',
+                creator: 'Acdx / Wikimedia Commons (Breadboard & Multimetre Açık Diyagramı)',
+                hardwareDesigner: 'Açık Kaynak Elektronik Laboratuvar Standartları',
+                license: 'Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0)',
+                sourceRepo: 'Wikimedia Commons: File:Breadboard_scheme.svg',
+                attributionNote: 'Bu şema Wikimedia Commons üzerinde "Acdx" tarafından CC BY-SA 3.0 açık lisansıyla paylaşılmıştır ve orijinal tasarımcısına atıf yapılmıştır.',
+                boardColor: '#d97706',
+                chipLabel: 'DMM + 830P BOARD'
+            }
+        ];
+
+        // Application State
+        let currentPage = 'overview';
+        let currentSubFilter = 'all';
+        let globalMediaMode = 'photo'; // 'photo' or 'svg'
+        let modalMediaMode = 'photo';
+        let currentInspectedItem = null;
+        let comparisonList = ['arduino-uno-r3', 'esp32-devkitc']; // Pre-loaded with 2 popular boards for instant utility
+
+        /**
+         * Generates a crisp, zero-copyright, interactive-looking SVG schematic for any hardware item.
+         * Ensures that even if an external image fails or user switches to PCB mode, a rich visual is rendered.
+         */
+        function generateHardwareSVG(item) {
+            const accent = item.page === 'arduino' ? '#06b6d4' : (item.page === 'esp' ? '#8b5cf6' : '#10b981');
+            const bgBoard = item.boardColor || '#0f172a';
+            return `
+            <svg viewBox="0 0 360 210" class="w-full h-full max-h-52 select-none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="pcb-${item.id}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="${bgBoard}" stop-opacity="0.92"/>
+                        <stop offset="100%" stop-color="#090d16" stop-opacity="0.98"/>
+                    </linearGradient>
+                </defs>
+                <!-- Outer PCB Board -->
+                <rect x="18" y="16" width="324" height="178" rx="14" fill="url(#pcb-${item.id})" stroke="${accent}" stroke-width="2"/>
+                <!-- Mounting Holes -->
+                <circle cx="34" cy="32" r="5" fill="#090d16" stroke="#94a3b8" stroke-width="2"/>
+                <circle cx="326" cy="32" r="5" fill="#090d16" stroke="#94a3b8" stroke-width="2"/>
+                <circle cx="34" cy="178" r="5" fill="#090d16" stroke="#94a3b8" stroke-width="2"/>
+                <circle cx="326" cy="178" r="5" fill="#090d16" stroke="#94a3b8" stroke-width="2"/>
+
+                <!-- Top & Bottom Gold Header Pins -->
+                <g fill="#fbbf24">
+                    ${Array.from({length: 14}, (_, i) => `<rect x="${56 + i * 18}" y="22" width="8" height="8" rx="1.5"/>`).join('')}
+                    ${Array.from({length: 14}, (_, i) => `<rect x="${56 + i * 18}" y="180" width="8" height="8" rx="1.5"/>`).join('')}
+                </g>
+
+                <!-- PCB Traces -->
+                <path d="M60 35 L60 65 L120 85 M280 35 L250 75 M90 175 L130 135 M230 175 L210 135" stroke="${accent}" stroke-width="1.3" stroke-opacity="0.45" fill="none"/>
+
+                <!-- USB / Connector Port on Left -->
+                <rect x="10" y="75" width="34" height="58" rx="4" fill="#475569" stroke="#cbd5e1" stroke-width="1.5"/>
+                <text x="27" y="108" fill="#f8fafc" font-size="8" font-family="monospace" text-anchor="middle" transform="rotate(-90 27 108)">IO/PWR</text>
+
+                <!-- Main Processor / Sensor Core IC -->
+                <rect x="108" y="62" width="144" height="86" rx="8" fill="#0f172a" stroke="#64748b" stroke-width="1.8"/>
+                <!-- IC Pins -->
+                <g fill="#cbd5e1">
+                    ${Array.from({length: 8}, (_, i) => `<rect x="${120 + i * 15}" y="56" width="5" height="6"/>`).join('')}
+                    ${Array.from({length: 8}, (_, i) => `<rect x="${120 + i * 15}" y="148" width="5" height="6"/>`).join('')}
+                </g>
+
+                <!-- Chip Text -->
+                <circle cx="122" cy="76" r="3" fill="${accent}"/>
+                <text x="180" y="96" fill="#ffffff" font-size="11" font-weight="bold" font-family="JetBrains Mono, monospace" text-anchor="middle">${item.chipLabel}</text>
+                <text x="180" y="114" fill="${accent}" font-size="9.5" font-family="JetBrains Mono, monospace" text-anchor="middle">${item.name.split('(')[0].trim()}</text>
+                <text x="180" y="132" fill="#94a3b8" font-size="8" font-family="JetBrains Mono, monospace" text-anchor="middle">TELİFSİZ TEKNİK PCB ŞEMASI</text>
+
+                <!-- Status LEDs -->
+                <circle cx="288" cy="88" r="4" fill="#10b981"/>
+                <text x="288" y="102" fill="#cbd5e1" font-size="7" font-family="monospace" text-anchor="middle">PWR</text>
+                <circle cx="288" cy="122" r="4" fill="${accent}"/>
+                <text x="288" y="136" fill="#cbd5e1" font-size="7" font-family="monospace" text-anchor="middle">TX/RX</text>
+            </svg>`;
+        }
+
+        /**
+         * Renders a single hardware card with full hover tooltips on every interactive element,
+         * open-license badge, and fallback handling.
+         */
+        function createHardwareCardHTML(item) {
+            const isCompared = comparisonList.includes(item.id);
+            const categoryMeta = {
+                arduino: { label: 'ARDUINO EKİPMANI', color: 'cyan' },
+                esp: { label: 'ESP KABLOSUZ MCU', color: 'violet' },
+                tools: { label: 'SENSÖR & YARDIMCI ALET', color: 'emerald' }
+            }[item.page];
+
+            const showSvgFirst = globalMediaMode === 'svg';
+
+            return `
+            <article class="cyber-card rounded-2xl overflow-hidden flex flex-col justify-between group">
+                <div>
+                    <!-- Top Card Status Bar -->
+                    <div class="px-5 py-3 bg-slate-950/75 border-b border-slate-800/80 flex items-center justify-between gap-2">
+                        <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-${categoryMeta.color}-500/15 text-${categoryMeta.color}-300 border border-${categoryMeta.color}-500/30">
+                            ${categoryMeta.label} • ${item.tag}
+                        </span>
+                        <span class="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-400"
+                              data-tooltip-title="Telif Hakkı Doğrulandı"
+                              data-tooltip="Bu kartın görseli telif kontrolünden geçmiştir. Orijinal yapımcı: ${item.creator} (${item.license}).">
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                            <span>Açık Lisans</span>
+                        </span>
+                    </div>
+
+                    <!-- Media Preview Area (Photo + Interactive SVG Fallback) -->
+                    <div class="relative h-52 bg-slate-950/90 border-b border-slate-800/70 flex items-center justify-center p-4 overflow-hidden">
+                        <img id="card-img-${item.id}"
+                             src="${item.imageUrl}"
+                             alt="${item.name}"
+                             loading="lazy"
+                             onerror="switchCardToSVG('${item.id}')"
+                             class="${showSvgFirst ? 'hidden' : 'block'} max-h-full max-w-full object-contain rounded-lg group-hover:scale-105 transition-transform duration-300">
+                        
+                        <div id="card-svg-${item.id}" class="${showSvgFirst ? 'flex' : 'hidden'} w-full h-full items-center justify-center">
+                            ${generateHardwareSVG(item)}
+                        </div>
+
+                        <!-- Quick Media Toggle Button on Corner -->
+                        <button onclick="toggleSingleCardMedia('${item.id}')"
+                                data-tooltip-title="Fotoğraf / PCB Şema Değiştir"
+                                data-tooltip="Bu ekipmanın gerçek açık lisanslı fotoğrafı ile teknik pin şeması arasında geçiş yapar."
+                                class="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-[11px] font-mono text-cyan-300 flex items-center gap-1 shadow-lg">
+                            <i data-lucide="repeat" class="w-3 h-3"></i>
+                            <span>Görünüm</span>
+                        </button>
+                    </div>
+
+                    <!-- Card Content -->
+                    <div class="p-5 space-y-3">
+                        <div>
+                            <h3 class="text-lg font-extrabold text-white group-hover:text-cyan-300 transition-colors">${item.name}</h3>
+                            <p class="text-xs font-mono text-slate-400 mt-0.5">${item.subtitle}</p>
+                        </div>
+
+                        <p class="text-sm text-slate-200 leading-relaxed">
+                            ${item.shortHook}
+                        </p>
+
+                        <!-- Quick Spec Chips -->
+                        <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
+                            ${Object.entries(item.specs).slice(0, 2).map(([k, v]) => `
+                                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+                                    <div class="text-[10px] font-mono text-slate-400 uppercase">${k}</div>
+                                    <div class="font-mono text-slate-200 font-medium truncate mt-0.5" title="${v}">${v}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Creator Attribution Preview Strip -->
+                        <div class="px-3 py-2 rounded-xl bg-emerald-950/20 border border-emerald-500/25 flex items-center justify-between text-[11px]">
+                            <span class="text-slate-400">Orijinal Yapımcı:</span>
+                            <span class="font-mono text-emerald-300 truncate max-w-[62%]" title="${item.creator}">${item.creator}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Footer Actions with Rich Hover Tooltips -->
+                <div class="px-5 pb-5 pt-2 flex items-center gap-2.5">
+                    <button onclick="openInspectModal('${item.id}')"
+                            data-tooltip-title="Detaylı İncele & Orijinal Yapımcı Künyesi"
+                            data-tooltip="${item.name} donanımının ne işe yaradığını, örnek bağlantı kodunu ve görselin telif/orijinal yapımcı bilgilerini açar."
+                            class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-cyan-500/15 transition">
+                        <i data-lucide="microscope" class="w-4 h-4"></i>
+                        <span>İncele & Yapımcı Bilgisi</span>
+                    </button>
+
+                    <button onclick="toggleCompareItem('${item.id}')"
+                            data-tooltip-title="Karşılaştırma Listesine Ekle / Çıkar"
+                            data-tooltip="${item.name} ekipmanını diğer kartlarla saat hızı, voltaj ve pin açısından kıyaslamak için seçer."
+                            class="py-2.5 px-3.5 rounded-xl border text-xs font-mono font-bold flex items-center gap-1.5 transition ${
+                                isCompared 
+                                ? 'bg-violet-500 text-white border-violet-400' 
+                                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700'
+                            }">
+                        <i data-lucide="${isCompared ? 'check' : 'scale'}" class="w-4 h-4"></i>
+                        <span>${isCompared ? 'Seçildi' : 'Kıyasla'}</span>
+                    </button>
+                </div>
+            </article>`;
+        }
+
+        /**
+         * Renders all grids based on current state
+         */
+        function renderAllGrids() {
+            const arduinoItems = HARDWARE_DATA.filter(x => x.page === 'arduino' && (currentSubFilter === 'all' || x.tag === currentSubFilter));
+            const espItems = HARDWARE_DATA.filter(x => x.page === 'esp' && (currentSubFilter === 'all' || x.tag === currentSubFilter));
+            const toolItems = HARDWARE_DATA.filter(x => x.page === 'tools' && (currentSubFilter === 'all' || x.tag === currentSubFilter));
+
+            document.getElementById('grid-arduino').innerHTML = arduinoItems.map(createHardwareCardHTML).join('');
+            document.getElementById('grid-esp').innerHTML = espItems.map(createHardwareCardHTML).join('');
+            document.getElementById('grid-tools').innerHTML = toolItems.map(createHardwareCardHTML).join('');
+
+            updateNavActiveState();
+            updateComparisonBadges();
+            lucide.createIcons();
+            attachTooltipListeners();
+        }
+
+        /**
+         * SPA Page Navigation
+         */
+        function navigateToPage(pageName) {
+            currentPage = pageName;
+            currentSubFilter = 'all';
+
+            // Clear search if active
+            const searchInput = document.getElementById('global-search');
+            if (searchInput.value.trim() !== '') {
+                searchInput.value = '';
+                document.getElementById('clear-search-btn').classList.add('hidden');
+                document.getElementById('search-status-banner').classList.add('hidden');
+            }
+
+            const views = ['overview', 'arduino', 'esp', 'tools', 'search-results'];
+            views.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                if (el) {
+                    if (v === pageName) {
+                        el.classList.remove('hidden');
+                    } else {
+                        el.classList.add('hidden');
+                    }
+                }
+            });
+
+            renderAllGrids();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function updateNavActiveState() {
+            const navMap = {
+                overview: { id: 'nav-overview', activeClass: 'bg-slate-800 border-cyan-400 text-white shadow-lg shadow-cyan-500/10' },
+                arduino: { id: 'nav-arduino', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-lg shadow-cyan-500/15' },
+                esp: { id: 'nav-esp', activeClass: 'bg-violet-500/20 border-violet-400 text-violet-200 shadow-lg shadow-violet-500/15' },
+                tools: { id: 'nav-tools', activeClass: 'bg-emerald-500/20 border-emerald-400 text-emerald-200 shadow-lg shadow-emerald-500/15' }
+            };
+
+            Object.entries(navMap).forEach(([key, meta]) => {
+                const btn = document.getElementById(meta.id);
+                if (!btn) return;
+                btn.className = 'nav-tab px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition border ';
+                if (currentPage === key) {
+                    btn.className += meta.activeClass;
+                } else {
+                    btn.className += 'bg-slate-900/80 hover:bg-slate-800 border-slate-800 text-slate-300';
+                }
+            });
+        }
+
+        function filterCurrentPage(tag) {
+            currentSubFilter = tag;
+            renderAllGrids();
+        }
+
+        /**
+         * Global Search Across All 3 Hardware Categories
+         */
+        function handleGlobalSearch(query) {
+            const q = query.trim().toLowerCase();
+            const clearBtn = document.getElementById('clear-search-btn');
+            const banner = document.getElementById('search-status-banner');
+            const searchView = document.getElementById('view-search-results');
+
+            if (!q) {
+                clearSearch();
+                return;
+            }
+
+            clearBtn.classList.remove('hidden');
+            banner.classList.remove('hidden');
+            document.getElementById('search-query-text').textContent = query;
+
+            // Hide regular views and show search results view
+            ['overview', 'arduino', 'esp', 'tools'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+            });
+            searchView.classList.remove('hidden');
+
+            const matches = HARDWARE_DATA.filter(item => {
+                const haystack = `${item.name} ${item.subtitle} ${item.shortHook} ${item.description} ${item.creator} ${Object.values(item.specs).join(' ')} ${item.useCases.join(' ')}`.toLowerCase();
+                return haystack.includes(q);
+            });
+
+            document.getElementById('search-count-text').textContent = `Toplam ${matches.length} uyumlu ekipman bulundu.`;
+
+            const searchGrid = document.getElementById('grid-search');
+            if (matches.length === 0) {
+                searchGrid.innerHTML = `
+                    <div class="col-span-full p-10 rounded-2xl bg-slate-900/80 border border-slate-800 text-center space-y-3">
+                        <p class="text-base font-bold text-white">"${query}" ile eşleşen bir donanım bulunamadı.</p>
+                        <p class="text-xs text-slate-400">Örnek aramalar: Uno, ESP32, Wi-Fi, kamera, mesafe, sıcaklık, OLED, multimetre</p>
+                    </div>`;
+            } else {
+                searchGrid.innerHTML = matches.map(createHardwareCardHTML).join('');
+            }
+
+            lucide.createIcons();
+            attachTooltipListeners();
+        }
+
+        function clearSearch() {
+            const searchInput = document.getElementById('global-search');
+            searchInput.value = '';
+            document.getElementById('clear-search-btn').classList.add('hidden');
+            document.getElementById('search-status-banner').classList.add('hidden');
+            document.getElementById('view-search-results').classList.add('hidden');
+            navigateToPage(currentPage);
+        }
+
+        /**
+         * Fallback & Toggle between Wikimedia Open Photo and Technical SVG PCB Diagram
+         */
+        function switchCardToSVG(itemId) {
+            const imgEl = document.getElementById(`card-img-${itemId}`);
+            const svgEl = document.getElementById(`card-svg-${itemId}`);
+            if (imgEl && svgEl) {
+                imgEl.classList.add('hidden');
+                svgEl.classList.remove('hidden');
+                svgEl.classList.add('flex');
+            }
+        }
+
+        function toggleSingleCardMedia(itemId) {
+            const imgEl = document.getElementById(`card-img-${itemId}`);
+            const svgEl = document.getElementById(`card-svg-${itemId}`);
+            if (!imgEl || !svgEl) return;
+
+            if (imgEl.classList.contains('hidden')) {
+                imgEl.classList.remove('hidden');
+                svgEl.classList.add('hidden');
+                svgEl.classList.remove('flex');
+            } else {
+                imgEl.classList.add('hidden');
+                svgEl.classList.remove('hidden');
+                svgEl.classList.add('flex');
+            }
+        }
+
+        function toggleGlobalMediaMode() {
+            globalMediaMode = globalMediaMode === 'photo' ? 'svg' : 'photo';
+            const label = document.getElementById('global-media-label');
+            label.textContent = globalMediaMode === 'photo' ? 'Görsel: Açık Lisans Fotoğraf' : 'Görsel: Teknik PCB Şema';
+            renderAllGrids();
+        }
+
+        /**
+         * Standart / Anormal Color Balance Switcher
+         */
+        function toggleColorBalance() {
+            const body = document.body;
+            const label = document.getElementById('theme-balance-label');
+            if (body.classList.contains('mode-abnormal')) {
+                body.classList.remove('mode-abnormal');
+                body.classList.add('mode-standard');
+                label.textContent = 'Renk: Standart Mod';
+            } else {
+                body.classList.remove('mode-standard');
+                body.classList.add('mode-abnormal');
+                label.textContent = 'Renk: Standart / Anormal';
+            }
+        }
+
+        /**
+         * INSPECT ("İNCELE") MODAL LOGIC WITH CREATOR ATTRIBUTION
+         */
+        function openInspectModal(itemId) {
+            const item = HARDWARE_DATA.find(x => x.id === itemId);
+            if (!item) return;
+            currentInspectedItem = item;
+            modalMediaMode = 'photo';
+
+            const badge = document.getElementById('modal-category-badge');
+            const badgeMeta = {
+                arduino: { text: 'SAYFA 1 • ARDUINO', cls: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' },
+                esp: { text: 'SAYFA 2 • ESP IOT', cls: 'bg-violet-500/20 text-violet-300 border border-violet-500/40' },
+                tools: { text: 'SAYFA 3 • SENSÖR & ALET', cls: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' }
+            }[item.page];
+
+            badge.className = `px-2.5 py-1 rounded-lg text-xs font-mono font-bold ${badgeMeta.cls}`;
+            badge.textContent = badgeMeta.text;
+
+            document.getElementById('modal-title').textContent = item.name;
+            document.getElementById('modal-subtitle').textContent = item.subtitle;
+
+            // Media setup
+            const modalImg = document.getElementById('modal-img');
+            const modalSvgContainer = document.getElementById('modal-svg-container');
+            modalImg.src = item.imageUrl;
+            modalImg.alt = item.name;
+            modalSvgContainer.innerHTML = generateHardwareSVG(item);
+            switchModalMedia('photo');
+
+            document.getElementById('modal-img-caption').textContent = `${item.name} — Orijinal Yapımcı: ${item.creator} (${item.license})`;
+
+            // Copyright & Creator Attribution Box
+            document.getElementById('modal-creator').textContent = item.creator;
+            document.getElementById('modal-hardware-designer').textContent = item.hardwareDesigner;
+            document.getElementById('modal-license').textContent = item.license;
+            document.getElementById('modal-source-repo').textContent = item.sourceRepo;
+            document.getElementById('modal-attribution-note').textContent = item.attributionNote;
+
+            // Description & Use Cases
+            document.getElementById('modal-description').textContent = item.description;
+            document.getElementById('modal-use-cases').innerHTML = item.useCases.map(u => `
+                <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-cyan-200 font-medium">
+                    • ${u}
+                </span>
+            `).join('');
+
+            // Specs List
+            document.getElementById('modal-specs-list').innerHTML = Object.entries(item.specs).map(([k, v]) => `
+                <div class="py-2 flex flex-col sm:flex-row sm:justify-between gap-1">
+                    <span class="text-slate-400 font-medium">${k}:</span>
+                    <span class="font-mono text-slate-100 sm:text-right">${v}</span>
+                </div>
+            `).join('');
+
+            // Wiring & Sample Code
+            document.getElementById('modal-wiring').textContent = `Bağlantı Özeti: ${item.wiringSummary}`;
+            document.getElementById('modal-code').textContent = item.sampleCode;
+            document.getElementById('copy-code-label').textContent = 'Kodu Kopyala';
+
+            updateModalCompareButton();
+
+            const modal = document.getElementById('inspect-modal');
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+            attachTooltipListeners();
+        }
+
+        function switchModalMedia(mode) {
+            modalMediaMode = mode;
+            const imgEl = document.getElementById('modal-img');
+            const svgEl = document.getElementById('modal-svg-container');
+            const btnPhoto = document.getElementById('modal-btn-photo');
+            const btnSvg = document.getElementById('modal-btn-svg');
+
+            if (mode === 'photo') {
+                imgEl.classList.remove('hidden');
+                svgEl.classList.add('hidden');
+                btnPhoto.className = 'px-2.5 py-1 rounded-lg text-xs font-mono bg-cyan-500 text-slate-950 font-bold transition';
+                btnSvg.className = 'px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            } else {
+                imgEl.classList.add('hidden');
+                svgEl.classList.remove('hidden');
+                btnSvg.className = 'px-2.5 py-1 rounded-lg text-xs font-mono bg-cyan-500 text-slate-950 font-bold transition';
+                btnPhoto.className = 'px-2.5 py-1 rounded-lg text-xs font-mono bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+            }
+        }
+
+        function handleModalImageError() {
+            switchModalMedia('svg');
+        }
+
+        function closeInspectModal() {
+            document.getElementById('inspect-modal').classList.add('hidden');
+        }
+
+        function copyModalSnippet() {
+            if (!currentInspectedItem) return;
+            const temp = document.createElement('textarea');
+            temp.value = currentInspectedItem.sampleCode;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+
+            const label = document.getElementById('copy-code-label');
+            label.textContent = 'Kopyalandı ✓';
+            setTimeout(() => { label.textContent = 'Kodu Kopyala'; }, 2000);
+        }
+
+        /**
+         * COMPARISON FEATURE
+         */
+        function toggleCompareItem(itemId) {
+            const idx = comparisonList.indexOf(itemId);
+            if (idx > -1) {
+                comparisonList.splice(idx, 1);
+            } else {
+                if (comparisonList.length >= 4) {
+                    comparisonList.shift();
+                }
+                comparisonList.push(itemId);
+            }
+            renderAllGrids();
+            if (currentInspectedItem) updateModalCompareButton();
+        }
+
+        function toggleCompareFromModal() {
+            if (!currentInspectedItem) return;
+            toggleCompareItem(currentInspectedItem.id);
+        }
+
+        function updateModalCompareButton() {
+            if (!currentInspectedItem) return;
+            const isAdded = comparisonList.includes(currentInspectedItem.id);
+            const btnText = document.getElementById('modal-compare-btn-text');
+            btnText.textContent = isAdded ? 'Karşılaştırma Listesinde ✓ (Çıkar)' : 'Karşılaştırmaya Ekle';
+        }
+
+        function updateComparisonBadges() {
+            document.getElementById('compare-badge-desktop').textContent = comparisonList.length;
+            document.getElementById('compare-badge-mobile').textContent = comparisonList.length;
+        }
+
+        function openCompareModal() {
+            const container = document.getElementById('compare-modal-body');
+            const items = HARDWARE_DATA.filter(x => comparisonList.includes(x.id));
+
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 space-y-3">
+                        <p class="text-base font-bold text-white">Karşılaştırma listenizde henüz ekipman yok.</p>
+                        <p class="text-xs text-slate-400">Herhangi bir kartın üzerindeki "Kıyasla" butonuna tıklayarak en fazla 4 donanımı yan yana karşılaştırabilirsiniz.</p>
+                    </div>`;
+            } else {
+                container.innerHTML = `
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-800">
+                                <th class="p-3 text-slate-400 font-mono uppercase w-40">Kriter</th>
+                                ${items.map(item => `
+                                    <th class="p-3 min-w-[200px]">
+                                        <div class="font-bold text-white text-sm">${item.name}</div>
+                                        <div class="text-[11px] font-mono text-cyan-400 mt-0.5">${item.subtitle}</div>
+                                    </th>
+                                `).join('')}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/80 text-slate-200">
+                            <tr>
+                                <td class="p-3 font-mono text-slate-400">Kategori</td>
+                                ${items.map(item => `<td class="p-3 font-mono uppercase text-cyan-300">${item.page} (${item.tag})</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-mono text-slate-400">Özet Görev</td>
+                                ${items.map(item => `<td class="p-3 leading-relaxed">${item.shortHook}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-mono text-slate-400">Teknik Detaylar</td>
+                                ${items.map(item => `
+                                    <td class="p-3 space-y-1.5">
+                                        ${Object.entries(item.specs).map(([k, v]) => `
+                                            <div><span class="text-slate-400">${k}:</span> <span class="font-mono text-white">${v}</span></div>
+                                        `).join('')}
+                                    </td>
+                                `).join('')}
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-mono text-slate-400">Orijinal Yapımcı & Lisans</td>
+                                ${items.map(item => `
+                                    <td class="p-3 font-mono text-emerald-300">
+                                        ${item.creator}<br>
+                                        <span class="text-slate-400 text-[10px]">${item.license}</span>
+                                    </td>
+                                `).join('')}
+                            </tr>
+                        </tbody>
+                    </table>`;
+            }
+
+            document.getElementById('compare-modal').classList.remove('hidden');
+            lucide.createIcons();
+            attachTooltipListeners();
+        }
+
+        function closeCompareModal() {
+            document.getElementById('compare-modal').classList.add('hidden');
+        }
+
+        function clearComparisonList() {
+            comparisonList = [];
+            renderAllGrids();
+            openCompareModal();
+        }
+
+        /**
+         * COPYRIGHT REPORT MODAL
+         */
+        function openCopyrightReportModal() {
+            const tbody = document.getElementById('copyright-table-body');
+            tbody.innerHTML = HARDWARE_DATA.map(item => `
+                <tr class="hover:bg-slate-800/50">
+                    <td class="py-2.5 px-3 font-bold text-white">${item.name}</td>
+                    <td class="py-2.5 px-3 font-mono text-emerald-300">${item.creator}</td>
+                    <td class="py-2.5 px-3 font-mono text-cyan-300">${item.license}</td>
+                    <td class="py-2.5 px-3">
+                        <button onclick="closeCopyrightReportModal(); openInspectModal('${item.id}')"
+                                data-tooltip-title="Bu Donanımı İncele"
+                                data-tooltip="${item.name} kartının tam inceleme ve atıf sayfasını açar."
+                                class="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 text-cyan-300 font-mono text-[11px] transition">
+                            İncele →
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('copyright-modal').classList.remove('hidden');
+            lucide.createIcons();
+            attachTooltipListeners();
+        }
+
+        function closeCopyrightReportModal() {
+            document.getElementById('copyright-modal').classList.add('hidden');
+        }
+
+        /**
+         * DYNAMIC FLOATING PROCESSOR TOOLTIP ENGINE
+         * Attaches to every element with [data-tooltip] so hovering over any button explains what it does.
+         */
+        const tooltipEl = document.getElementById('processor-tooltip');
+        const tooltipTitleEl = document.getElementById('tooltip-title');
+        const tooltipDescEl = document.getElementById('tooltip-desc');
+
+        function attachTooltipListeners() {
+            const elements = document.querySelectorAll('[data-tooltip]');
+            elements.forEach(el => {
+                if (el.dataset.tooltipBound === 'true') return;
+                el.dataset.tooltipBound = 'true';
+
+                el.addEventListener('mouseenter', (e) => {
+                    const desc = el.getAttribute('data-tooltip');
+                    const title = el.getAttribute('data-tooltip-title') || 'BUTON İŞLEV BİLGİSİ';
+                    if (!desc) return;
+
+                    tooltipTitleEl.textContent = title;
+                    tooltipDescEl.textContent = desc;
+                    tooltipEl.classList.remove('opacity-0', 'translate-y-1');
+                    tooltipEl.classList.add('opacity-100', 'translate-y-0');
+                    positionTooltip(e);
+                });
+
+                el.addEventListener('mousemove', (e) => {
+                    positionTooltip(e);
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    tooltipEl.classList.add('opacity-0', 'translate-y-1');
+                    tooltipEl.classList.remove('opacity-100', 'translate-y-0');
+                });
+            });
+        }
+
+        function positionTooltip(e) {
+            const pad = 16;
+            const rect = tooltipEl.getBoundingClientRect();
+            let left = e.clientX + 16;
+            let top = e.clientY + 18;
+
+            if (left + rect.width + pad > window.innerWidth) {
+                left = e.clientX - rect.width - 14;
+            }
+            if (top + rect.height + pad > window.innerHeight) {
+                top = e.clientY - rect.height - 14;
+            }
+            if (left < pad) left = pad;
+            if (top < pad) top = pad;
+
+            tooltipEl.style.left = `${left}px`;
+            tooltipEl.style.top = `${top}px`;
+        }
+
+        // Keyboard ESC support for closing modals
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeInspectModal();
+                closeCompareModal();
+                closeCopyrightReportModal();
+            }
+        });
+
+        // Initialize application on window load
+        window.onload = function () {
+            renderAllGrids();
+            attachTooltipListeners();
+        };
+    </script>
+</body>
+</html>
